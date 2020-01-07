@@ -70,9 +70,7 @@
 #endif
 #include <soc/oppo/boot_mode.h>
 
-#if ((defined CONFIG_MSM_855) || (defined CONFIG_MSM_7150))
 #include <linux/uaccess.h>
-#endif
 
 #define VER_MAJOR   1
 #define VER_MINOR   2

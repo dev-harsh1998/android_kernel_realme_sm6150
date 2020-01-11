@@ -22,6 +22,17 @@ include $(MY_LOCAL_PATH)/soc/Android.mk
 include $(MY_LOCAL_PATH)/asoc/Android.mk
 include $(MY_LOCAL_PATH)/asoc/codecs/Android.mk
 include $(MY_LOCAL_PATH)/asoc/codecs/wcd934x/Android.mk
+
+#ifdef VENDOR_EDIT
+#Jianfeng.Qiu@PSW.MM.AudioDriver.Codec, 2018/04/20, Add for tfa9894 codec
+include $(MY_LOCAL_PATH)/asoc/codecs/tfa98xx-v6/Android.mk
+#endif /* VENDOR_EDIT */
+
+#ifdef VENDOR_EDIT
+#Jianfeng.Qiu@PSW.MM.AudioDriver.Codec, 2018/04/20, Add for ak43xx codec
+#include $(MY_LOCAL_PATH)/asoc/codecs/ak4376/Android.mk
+#endif /* VENDOR_EDIT */
+
 endif
 
 ifeq ($(call is-board-platform-in-list,sdm670 msmnile),true)

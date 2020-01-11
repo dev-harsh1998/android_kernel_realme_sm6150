@@ -265,6 +265,11 @@ enum {
 	/* IDX 187 -> 189 */
 	IDX_AFE_PORT_ID_SENARY_PCM_RX,
 	IDX_AFE_PORT_ID_SENARY_PCM_TX,
+#ifdef VENDOR_EDIT
+	/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+	 * add for RX-to-TX AFE Loopback for AEC path */
+	IDX_AFE_LOOPBACK_TX,
+#endif /* VENDOR_EDIT */
 	AFE_MAX_PORTS
 };
 

@@ -112,9 +112,17 @@ int adm_pack_and_set_one_pp_param(int port_id, int copp_idx,
 				  struct param_hdr_v3 param_hdr,
 				  u8 *param_data);
 
+#ifdef VENDOR_EDIT
+/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+ * add for RX-to-TX AFE Loopback for AEC path */
+int adm_open(int port, int path, int rate, int mode, int topology,
+			   int perf_mode, uint16_t bits_per_sample,
+			   int app_type, int acdbdev_id, int session_type);
+#else /* VENDOR_EDIT */
 int adm_open(int port, int path, int rate, int mode, int topology,
 			   int perf_mode, uint16_t bits_per_sample,
 			   int app_type, int acdbdev_id);
+#endif /* VENDOR_EDIT */
 
 int adm_map_rtac_block(struct rtac_cal_block_data *cal_block);
 

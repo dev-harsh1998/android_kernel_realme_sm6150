@@ -1351,6 +1351,11 @@ struct adm_cmd_connect_afe_port_v5 {
 #define INT_FM_TX 0x3005
 #define RT_PROXY_PORT_001_RX	0x2000
 #define RT_PROXY_PORT_001_TX	0x2001
+#ifdef VENDOR_EDIT
+/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+ * add for RX-to-TX AFE Loopback for AEC path */
+#define AFE_LOOPBACK_TX	0x6001
+#endif /* VENDOR_EDIT */
 #define DISPLAY_PORT_RX	0x6020
 
 #define AFE_PORT_INVALID 0xFFFF

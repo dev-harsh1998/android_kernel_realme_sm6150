@@ -1453,6 +1453,7 @@ static int wcd937x_event_notify(struct notifier_block *block,
 	return 0;
 }
 
+
 static int __wcd937x_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 					  int event)
 {
@@ -1650,6 +1651,67 @@ static int wcd937x_codec_enable_vdd_buck(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+#ifdef VENDOR_EDIT
+//Le.Li@PSW.MM.AudioDriver.FTM.954616, 2018/03/15, Add for FTM micbias test
+static int micbias_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	int val=0;
+	int reg1_val = 0;
+	int reg2_val = 0;
+	int reg3_val = 0;
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+
+	reg1_val = (snd_soc_read(codec, WCD937X_ANA_MICB1) >> 6);
+	reg2_val = (snd_soc_read(codec, WCD937X_ANA_MICB2) >> 6);
+	reg3_val = (snd_soc_read(codec, WCD937X_ANA_MICB3) >> 6);
+	if (reg1_val == 0x01) {
+		val = 1;
+	} else if (reg2_val == 0x01){
+		val = 2;
+	} else if (reg3_val == 0x01){
+                val = 3;
+	} else {
+		val = 0;
+	}
+
+	ucontrol->value.integer.value[0] = val;
+	pr_err("%s val: %d\n", __func__, val);
+	return val;
+}
+
+static int micbias_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+
+	dev_err(codec->dev, "%s enter \n", __func__);
+	dev_err(codec->dev, "%s  micbias_put %ld : \n",__func__, ucontrol->value.integer.value[0]);
+	switch (ucontrol->value.integer.value[0]){
+	case 0:
+		wcd937x_micbias_control(codec, MIC_BIAS_1, MICB_DISABLE, false);
+		wcd937x_micbias_control(codec, MIC_BIAS_2, MICB_DISABLE, false);
+		wcd937x_micbias_control(codec, MIC_BIAS_3, MICB_DISABLE, false);
+//		tavil_cdc_mclk_enable(codec, false);
+		break;
+	case 1:
+//		tavil_cdc_mclk_enable(codec, true);
+		wcd937x_micbias_control(codec, MIC_BIAS_1, MICB_ENABLE, false);
+		break;
+	case 2:
+//		tavil_cdc_mclk_enable(codec, true);
+		wcd937x_micbias_control(codec, MIC_BIAS_2, MICB_ENABLE, false);
+		break;
+	case 3:
+		wcd937x_micbias_control(codec, MIC_BIAS_3, MICB_ENABLE, false);
+		break;
+	default:
+		dev_err(codec->dev, "%s invalid val \n", __func__);
+	}
+	return 0;
+}
+#endif /* VENDOR_EDIT */
+
 static const char * const rx_hph_mode_mux_text[] = {
 	"CLS_H_INVALID", "CLS_H_HIFI", "CLS_H_LP", "CLS_AB", "CLS_H_LOHIFI",
 	"CLS_H_ULP", "CLS_AB_HIFI",
@@ -1670,7 +1732,22 @@ static const struct soc_enum rx_hph_mode_mux_enum =
 static SOC_ENUM_SINGLE_EXT_DECL(wcd937x_ear_pa_gain_enum,
 				wcd937x_ear_pa_gain_text);
 
+#ifdef VENDOR_EDIT
+//Le.Li@PSW.MM.AudioDriver.FTM.954616, 2018/03/15, Add for FTM micbias test
+static char const *ftm_wcd937x_micbias_ctrl_text[] = {"DISABLE", "MICBIAS1", "MICBIAS2", "MICBIAS3", "FORCE_MICBIAS1", "FORCE_MICBIAS2", "FORCE_MICBIAS3"};
+static SOC_ENUM_SINGLE_EXT_DECL(ftm_wcd937x_micbias_ctl_enum, ftm_wcd937x_micbias_ctrl_text);
+#endif /* VENDOR_EDIT */
+
 static const struct snd_kcontrol_new wcd937x_snd_controls[] = {
+	#ifdef VENDOR_EDIT
+	/*Jianfeng.Qiu@PSW.MM.AudioDriver.FTM.954616, 2016/08/24,
+	 *Add for AT command to enable micbias.
+	 */
+	//Le.Li@PSW.MM.AudioDriver.FTM.954616, 2018/03/15, Add for FTM micbias test
+	SOC_ENUM_EXT("Enable Micbias", ftm_wcd937x_micbias_ctl_enum,
+		micbias_get, micbias_put),
+	#endif /* VENDOR_EDIT */
+
 	SOC_ENUM_EXT("EAR PA GAIN", wcd937x_ear_pa_gain_enum,
 		wcd937x_ear_pa_gain_get, wcd937x_ear_pa_gain_put),
 	SOC_ENUM_EXT("RX HPH Mode", rx_hph_mode_mux_enum,
@@ -2600,7 +2677,10 @@ static int wcd937x_bind(struct device *dev)
 	 * soundwire auto enumeration of slave devices as
 	 * as per HW requirement.
 	 */
-	usleep_range(5000, 5010);
+	#ifdef VENDOR_EDIT
+        /* Wang.kun@MM.AudioDriver.Machine.2156142, 2019/07/18, add for sound card bind */
+	usleep_range(100000, 100010);
+	#endif /* VENDOR EDIT */
 	wcd937x->wakeup = wcd937x_wakeup;
 
 	ret = component_bind_all(dev, wcd937x);

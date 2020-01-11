@@ -1793,6 +1793,7 @@ powerup:
 			msm_sdw_set_spkr_mode(msm_sdw->codec,
 					      msm_sdw->spkr_mode);
 		}
+
 		break;
 	default:
 		break;

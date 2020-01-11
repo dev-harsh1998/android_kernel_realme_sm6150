@@ -31,6 +31,16 @@
 #include "wcd-mbhc-v2.h"
 #include "pdata.h"
 
+#ifdef pr_debug
+#undef pr_debug
+#define pr_debug pr_warning
+#endif
+
+#ifdef dev_dbg
+#undef dev_dbg
+#define dev_dbg dev_err
+#endif
+
 #define WCD_MBHC_ADC_HS_THRESHOLD_MV    1700
 #define WCD_MBHC_ADC_HPH_THRESHOLD_MV   75
 #define WCD_MBHC_ADC_MICBIAS_MV         1800
@@ -351,14 +361,48 @@ done:
 	return (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) ? true : false;
 }
 
+static int wcd_mbhc_adc_get_hs_thres(struct wcd_mbhc *mbhc)
+{
+	int hs_threshold, micbias_mv;
+
+	micbias_mv = wcd_mbhc_get_micbias(mbhc);
+	if (mbhc->hs_thr) {
+		if (mbhc->micb_mv == micbias_mv)
+			hs_threshold = mbhc->hs_thr;
+		else
+			hs_threshold = (mbhc->hs_thr *
+				micbias_mv) / mbhc->micb_mv;
+	} else {
+		hs_threshold = ((WCD_MBHC_ADC_HS_THRESHOLD_MV *
+			micbias_mv) / WCD_MBHC_ADC_MICBIAS_MV);
+	}
+	return hs_threshold;
+}
+
+static int wcd_mbhc_adc_get_hph_thres(struct wcd_mbhc *mbhc)
+{
+	int hph_threshold, micbias_mv;
+
+	micbias_mv = wcd_mbhc_get_micbias(mbhc);
+	if (mbhc->hph_thr) {
+		if (mbhc->micb_mv == micbias_mv)
+			hph_threshold = mbhc->hph_thr;
+		else
+			hph_threshold = (mbhc->hph_thr *
+				micbias_mv) / mbhc->micb_mv;
+	} else {
+		hph_threshold = ((WCD_MBHC_ADC_HPH_THRESHOLD_MV *
+			micbias_mv) / WCD_MBHC_ADC_MICBIAS_MV);
+	}
+	return hph_threshold;
+}
+
 static bool wcd_mbhc_adc_check_for_spl_headset(struct wcd_mbhc *mbhc,
 					   int *spl_hs_cnt)
 {
 	bool spl_hs = false;
 	int output_mv = 0;
 	int adc_threshold = 0, adc_hph_threshold = 0;
-	struct snd_soc_codec *codec = mbhc->codec;
-	struct wcd9xxx_pdata *pdata = dev_get_platdata(codec->dev->parent);
 
 	pr_debug("%s: enter\n", __func__);
 	if (!mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic)
@@ -375,19 +419,8 @@ static bool wcd_mbhc_adc_check_for_spl_headset(struct wcd_mbhc *mbhc,
 	 */
 	output_mv = wcd_measure_adc_once(mbhc, MUX_CTL_IN2P);
 
-	if (mbhc->hs_thr &&
-		(pdata->micbias.micb2_mv != WCD_MBHC_ADC_MICBIAS_MV))
-		adc_threshold = mbhc->hs_thr;
-	else
-		adc_threshold = ((WCD_MBHC_ADC_HS_THRESHOLD_MV *
-			  wcd_mbhc_get_micbias(mbhc))/WCD_MBHC_ADC_MICBIAS_MV);
-
-	if (mbhc->hph_thr)
-		adc_hph_threshold = mbhc->hph_thr;
-	else
-		adc_hph_threshold = ((WCD_MBHC_ADC_HPH_THRESHOLD_MV *
-				wcd_mbhc_get_micbias(mbhc))/
-				WCD_MBHC_ADC_MICBIAS_MV);
+	adc_threshold = wcd_mbhc_adc_get_hs_thres(mbhc);
+	adc_hph_threshold = wcd_mbhc_adc_get_hph_thres(mbhc);
 
 	if (output_mv > adc_threshold || output_mv < adc_hph_threshold) {
 		spl_hs = false;
@@ -420,8 +453,6 @@ static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 	bool is_spl_hs = false;
 	int output_mv = 0;
 	int adc_threshold = 0;
-	struct snd_soc_codec *codec = mbhc->codec;
-	struct wcd9xxx_pdata *pdata = dev_get_platdata(codec->dev->parent);
 
 	/*
 	 * Increase micbias to 2.7V to detect headsets with
@@ -441,14 +472,8 @@ static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 			return false;
 		}
 	}
-	if (mbhc->hs_thr &&
-		(pdata->micbias.micb2_mv != WCD_MBHC_ADC_MICBIAS_MV))
-		adc_threshold = mbhc->hs_thr;
-	else
-		adc_threshold = ((WCD_MBHC_ADC_HS_THRESHOLD_MV *
-			  wcd_mbhc_get_micbias(mbhc)) /
-			  WCD_MBHC_ADC_MICBIAS_MV);
 
+	adc_threshold = wcd_mbhc_adc_get_hs_thres(mbhc);
 	while (!is_spl_hs) {
 		if (mbhc->hs_detect_work_stop) {
 			pr_debug("%s: stop requested: %d\n", __func__,
@@ -541,6 +566,11 @@ static void wcd_mbhc_adc_detect_plug_type(struct wcd_mbhc *mbhc)
 	struct snd_soc_codec *codec = mbhc->codec;
 
 	pr_debug("%s: enter\n", __func__);
+        #ifdef VENDOR_EDIT
+	//Wang.kun@MM.Audiodriver.Machine, 2019/08/17, Modify for headset insert noise
+	msleep(400);
+        #endif /* VENDOR_EDIT */
+
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 
 	if (mbhc->mbhc_cb->hph_pull_down_ctrl)
@@ -565,8 +595,16 @@ static void wcd_mbhc_adc_detect_plug_type(struct wcd_mbhc *mbhc)
 static void wcd_micbias_disable(struct wcd_mbhc *mbhc)
 {
 	if (mbhc->micbias_enable) {
+		#ifndef VENDOR_EDIT
+		/* Zhaoan.Xu@Multimedia.AudioDriver.Stability, 2019/04/11, Modify for checklist 861440*/
 		mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(
 			mbhc->codec, MIC_BIAS_2, false);
+		#else
+		if (mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic) {
+			mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(
+			    mbhc->codec, MIC_BIAS_2, false);
+		}
+		#endif /* VENDOR_EDIT */
 		if (mbhc->mbhc_cb->set_micbias_value)
 			mbhc->mbhc_cb->set_micbias_value(
 					mbhc->codec);
@@ -580,15 +618,8 @@ static int wcd_mbhc_get_plug_from_adc(struct wcd_mbhc *mbhc, int adc_result)
 	enum wcd_mbhc_plug_type plug_type = MBHC_PLUG_TYPE_INVALID;
 	u32 hph_thr = 0, hs_thr = 0;
 
-	if (mbhc->hs_thr)
-		hs_thr = mbhc->hs_thr;
-	else
-		hs_thr = WCD_MBHC_ADC_HS_THRESHOLD_MV;
-
-	if (mbhc->hph_thr)
-		hph_thr = mbhc->hph_thr;
-	else
-		hph_thr = WCD_MBHC_ADC_HPH_THRESHOLD_MV;
+	hs_thr = wcd_mbhc_adc_get_hs_thres(mbhc);
+	hph_thr = wcd_mbhc_adc_get_hph_thres(mbhc);
 
 	if (adc_result < hph_thr)
 		plug_type = MBHC_PLUG_TYPE_HEADPHONE;
@@ -608,19 +639,29 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	enum wcd_mbhc_plug_type plug_type = MBHC_PLUG_TYPE_INVALID;
 	unsigned long timeout;
 	bool wrk_complete = false;
+	#ifndef VENDOR_EDIT
+	// Ming.Liu@MM.Audiodriver.Machine, 2019/08/27, Modify for disable cross connection
 	int pt_gnd_mic_swap_cnt = 0;
 	int no_gnd_mic_swap_cnt = 0;
+	#endif
 	bool is_pa_on = false, spl_hs = false, spl_hs_reported = false;
+	#ifndef VENDOR_EDIT
+	// Ming.Liu@MM.Audiodriver.Machine, 2019/08/27, Modify for disable cross connection
 	int ret = 0;
+	#endif
 	int spl_hs_count = 0;
 	int output_mv = 0;
 	int cross_conn;
 	int try = 0;
+	int hs_threshold, micbias_mv;
 
 	pr_debug("%s: enter\n", __func__);
 
 	mbhc = container_of(work, struct wcd_mbhc, correct_plug_swch);
 	codec = mbhc->codec;
+
+	micbias_mv = wcd_mbhc_get_micbias(mbhc);
+	hs_threshold = wcd_mbhc_adc_get_hs_thres(mbhc);
 
 	WCD_MBHC_RSC_LOCK(mbhc);
 	/* Mask ADC COMPLETE interrupt */
@@ -698,13 +739,15 @@ correct_plug_type:
 		 */
 		plug_type = wcd_mbhc_get_plug_from_adc(mbhc, output_mv);
 
-		if ((output_mv > WCD_MBHC_ADC_HS_THRESHOLD_MV) &&
+		if ((output_mv > hs_threshold) &&
 		    (spl_hs_count < WCD_MBHC_SPL_HS_CNT)) {
 			spl_hs = wcd_mbhc_adc_check_for_spl_headset(mbhc,
 								&spl_hs_count);
 
+			output_mv = wcd_measure_adc_once(mbhc, MUX_CTL_IN2P);
 			if (spl_hs_count == WCD_MBHC_SPL_HS_CNT) {
-				output_mv = WCD_MBHC_ADC_HS_THRESHOLD_MV;
+				hs_threshold = (hs_threshold *
+					wcd_mbhc_get_micbias(mbhc)) / micbias_mv;
 				spl_hs = true;
 				mbhc->micbias_enable = true;
 			}
@@ -713,7 +756,9 @@ correct_plug_type:
 		if (mbhc->mbhc_cb->hph_pa_on_status)
 			is_pa_on = mbhc->mbhc_cb->hph_pa_on_status(mbhc->codec);
 
-		if ((output_mv <= WCD_MBHC_ADC_HS_THRESHOLD_MV) &&
+		#ifndef VENDOR_EDIT
+		// Ming.Liu@MM.Audiodriver.Machine, 2019/08/27, Modify for disable cross connection
+                if ((output_mv <= hs_threshold) &&
 		    (!is_pa_on)) {
 			/* Check for cross connection*/
 			ret = wcd_check_cross_conn(mbhc);
@@ -766,8 +811,9 @@ correct_plug_type:
 				}
 			}
 		}
+		#endif
 
-		if (output_mv > WCD_MBHC_ADC_HS_THRESHOLD_MV) {
+		if (output_mv > hs_threshold) {
 			pr_debug("%s: cable is extension cable\n", __func__);
 			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
 			wrk_complete = true;
@@ -932,9 +978,8 @@ static irqreturn_t wcd_mbhc_adc_hs_rem_irq(int irq, void *data)
 
 	timeout = jiffies +
 		  msecs_to_jiffies(WCD_FAKE_REMOVAL_MIN_PERIOD_MS);
-	adc_threshold = ((WCD_MBHC_ADC_HS_THRESHOLD_MV *
-			  wcd_mbhc_get_micbias(mbhc)) /
-			  WCD_MBHC_ADC_MICBIAS_MV);
+	adc_threshold = wcd_mbhc_adc_get_hs_thres(mbhc);
+
 	do {
 		retry++;
 		/*

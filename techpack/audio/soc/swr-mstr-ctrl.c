@@ -94,7 +94,11 @@ static unsigned int read_data;
 
 static bool swrm_lock_sleep(struct swr_mstr_ctrl *swrm);
 static void swrm_unlock_sleep(struct swr_mstr_ctrl *swrm);
-
+#ifdef VENDOR_EDIT
+/* Wang.kun@MM.AudioDriver.Machine.2156142, 2019/07/18, add for sound card register fail debug patch*/
+static u32 swr_master_read(struct swr_mstr_ctrl *swrm, unsigned int reg_addr);
+static void swr_master_write(struct swr_mstr_ctrl *swrm, u16 reg_addr, u32 val);
+#endif /* VENDOR_EDIT */
 static bool swrm_is_msm_variant(int val)
 {
 	return (val == SWRM_VERSION_1_3);
@@ -135,13 +139,32 @@ static ssize_t swrm_reg_show(char __user *ubuf, size_t count,
 	int i, reg_val, len;
 	ssize_t total = 0;
 	char tmp_buf[SWR_MSTR_MAX_BUF_LEN];
-
+        #ifdef VENDOR_EDIT
+        /* Wang.kun@MM.AudioDriver.Machine.2156142, 2019/07/18, add for sound card register failed debug patch*/
+	int rem;
+	#endif /* VENDOR EDIT */
 	if (!ubuf || !ppos)
 		return 0;
+        #ifdef VENDOR_EDIT
+        /* Wang.kun@MM.AudioDriver.Machine.2156142, 2019/07/18, add for sound card register failed debug patch*/
+	i = (((int) *ppos) + SWR_MSTR_START_REG_ADDR);
+	rem = i%4;
+	if (rem)
+		i = i - rem;
+        #endif /* VENDOR EDIT */
 
-	for (i = (((int) *ppos / BYTES_PER_LINE) + SWR_MSTR_START_REG_ADDR);
-		i <= SWR_MSTR_MAX_REG_ADDR; i += 4) {
-		reg_val = dbgswrm->read(dbgswrm->handle, i);
+        #ifndef VENDOR_EDIT
+        /* Wang.kun@MM.AudioDriver.Machine.2156142, 2019/07/18, add for sound card register failed debug patch*/
+        for (i = (((int) *ppos / BYTES_PER_LINE) + SWR_MSTR_START_REG_ADDR);
+               i <= SWR_MSTR_MAX_REG_ADDR; i += 4) {
+               reg_val = dbgswrm->read(dbgswrm->handle, i);
+        #else /* VENDOR EDIT */ 
+	if (i >= SWR_MSTR_MAX_REG_ADDR)
+		goto copy_err;
+
+	for (; i <= SWR_MSTR_MAX_REG_ADDR; i += 4) {
+		reg_val = swr_master_read(dbgswrm, i);
+        #endif /* VENDOR EDIT */
 		len = snprintf(tmp_buf, 25, "0x%.3x: 0x%.2x\n", i, reg_val);
 		if ((total + len) >= count - 1)
 			break;
@@ -150,10 +173,14 @@ static ssize_t swrm_reg_show(char __user *ubuf, size_t count,
 			total = -EFAULT;
 			goto copy_err;
 		}
-		*ppos += len;
+                #ifndef VENDOR_EDIT
+                /* Wang.kun@MM.AudioDriver.Machine.2156142, 2019/07/18, add for sound card register failed debug patch*/
+                *ppos += len;
+                #else /* VENDOR EDIT */ 
+                *ppos = i;
+                #endif /* VENDOR EDIT */
 		total += len;
 	}
-
 copy_err:
 	return total;
 }
@@ -211,7 +238,12 @@ static ssize_t swrm_debug_write(struct file *filp,
 		if ((param[0] <= SWR_MSTR_MAX_REG_ADDR) &&
 			(param[1] <= 0xFFFFFFFF) &&
 			(rc == 0))
-			rc = dbgswrm->write(dbgswrm->handle, param[0],
+                        #ifndef VENDOR_EDIT
+                        /* Wang.kun@MM.AudioDriver.Machine.2156142, 2019/07/18, add for sound card register failed debug patch*/
+                        rc = dbgswrm->write(dbgswrm->handle, param[0],
+                        #else /* VENDOR EDIT */
+                        swr_master_write(dbgswrm, param[0],
+                        #endif /* VENDOR EDIT */
 					    param[1]);
 		else
 			rc = -EINVAL;
@@ -219,7 +251,12 @@ static ssize_t swrm_debug_write(struct file *filp,
 		/* read */
 		rc = get_parameters(lbuf, param, 1);
 		if ((param[0] <= SWR_MSTR_MAX_REG_ADDR) && (rc == 0))
-			read_data = dbgswrm->read(dbgswrm->handle, param[0]);
+                        #ifndef VENDOR_EDIT
+                        /* Wang.kun@MM.AudioDriver.Machine.2156142, 2019/07/18, add for sound card register failed debug patch*/
+                        read_data = dbgswrm->read(dbgswrm->handle, param[0]);
+                        #else
+                        read_data = swr_master_read(dbgswrm, param[0]);
+                        #endif
 		else
 			rc = -EINVAL;
 	}
@@ -1599,6 +1636,11 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 			__func__, dev_id);
 
 	swrm_new_slave_config(swrm);
+        #ifdef VENDOR_EDIT
+        /* Wang.kun@MM.AudioDriver.Machine.2156142, 2019/07/18, add for sound card bind */
+	pr_err("%s: mcp status %x\n", swr_master_read(swrm, SWRM_MCP_STATUS));
+	pr_err("%s: interrupt status %x\n", swr_master_read(swrm, SWRM_INTERRUPT_STATUS));
+        #endif /* VENDOR_EDIT */
 	pm_runtime_mark_last_busy(swrm->dev);
 	pm_runtime_put_autosuspend(swrm->dev);
 	return ret;
@@ -1992,22 +2034,42 @@ static int swrm_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node)
 		of_register_swr_devices(&swrm->master);
+    #ifndef VENDOR_EDIT
+    /* Wang.kun@MM.AudioDriver.Machine.2156142, 2019/07/18, add for sound card register failed debug patch*/
+    dbgswrm = swrm;
+    debugfs_swrm_dent = debugfs_create_dir(dev_name(&pdev->dev), 0);
+    if (!IS_ERR(debugfs_swrm_dent)) {
+            debugfs_peek = debugfs_create_file("swrm_peek",
+            S_IFREG | 0444, debugfs_swrm_dent,
+            (void *) "swrm_peek", &swrm_debug_ops);
 
-	dbgswrm = swrm;
-	debugfs_swrm_dent = debugfs_create_dir(dev_name(&pdev->dev), 0);
-	if (!IS_ERR(debugfs_swrm_dent)) {
-		debugfs_peek = debugfs_create_file("swrm_peek",
-				S_IFREG | 0444, debugfs_swrm_dent,
-				(void *) "swrm_peek", &swrm_debug_ops);
+            debugfs_poke = debugfs_create_file("swrm_poke",
+                            S_IFREG | 0444, debugfs_swrm_dent,
+                            (void *) "swrm_poke", &swrm_debug_ops);
 
-		debugfs_poke = debugfs_create_file("swrm_poke",
-				S_IFREG | 0444, debugfs_swrm_dent,
-				(void *) "swrm_poke", &swrm_debug_ops);
+            debugfs_reg_dump = debugfs_create_file("swrm_reg_dump",
+                                S_IFREG | 0444, debugfs_swrm_dent,
+                                (void *) "swrm_reg_dump",
+                                &swrm_debug_ops);
+    #else /* VENDOR EDIT */
+    if (swrm->master_id == MASTER_ID_TX) {
+       dbgswrm = swrm;
+       debugfs_swrm_dent = debugfs_create_dir(dev_name(&pdev->dev), 0);
+       if (!IS_ERR(debugfs_swrm_dent)) {
+	   debugfs_peek = debugfs_create_file("swrm_peek",
+                   S_IFREG | 0444, debugfs_swrm_dent,
+		   (void *) "swrm_peek", &swrm_debug_ops);
 
-		debugfs_reg_dump = debugfs_create_file("swrm_reg_dump",
-				   S_IFREG | 0444, debugfs_swrm_dent,
-				   (void *) "swrm_reg_dump",
-				   &swrm_debug_ops);
+	   debugfs_poke = debugfs_create_file("swrm_poke",
+		   S_IFREG | 0444, debugfs_swrm_dent,
+		   (void *) "swrm_poke", &swrm_debug_ops);
+
+	   debugfs_reg_dump = debugfs_create_file("swrm_reg_dump",
+		   S_IFREG | 0444, debugfs_swrm_dent,
+		   (void *) "swrm_reg_dump",
+		   &swrm_debug_ops);
+		}
+     #endif /* VENDOR EDIT */
 	}
 
 	ret = device_init_wakeup(swrm->dev, true);

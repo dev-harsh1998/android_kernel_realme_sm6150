@@ -67,6 +67,11 @@ struct adm_copp {
 	atomic_t channels[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t app_type[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t acdb_id[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
+#ifdef VENDOR_EDIT
+	/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+	 * add for RX-to-TX AFE Loopback for AEC path */
+	atomic_t session_type[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
+#endif /* VENDOR_EDIT */
 	wait_queue_head_t wait[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	wait_queue_head_t adm_delay_wait[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t adm_delay_stat[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
@@ -276,8 +281,16 @@ static int adm_get_copp_id(int port_idx, int copp_idx)
 	return atomic_read(&this_adm.copp.id[port_idx][copp_idx]);
 }
 
+#ifdef VENDOR_EDIT
+/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+ * add for RX-to-TX AFE Loopback for AEC path */
+static int adm_get_idx_if_copp_exists(int port_idx, int topology, int mode,
+				 int rate, int bit_width, int app_type,
+				 int session_type)
+#else /* VENDOR_EDIT */
 static int adm_get_idx_if_copp_exists(int port_idx, int topology, int mode,
 				 int rate, int bit_width, int app_type)
+#endif /* VENDOR_EDIT */
 {
 	int idx;
 
@@ -291,6 +304,13 @@ static int adm_get_idx_if_copp_exists(int port_idx, int topology, int mode,
 		    (rate == atomic_read(&this_adm.copp.rate[port_idx][idx])) &&
 		    (bit_width ==
 			atomic_read(&this_adm.copp.bit_width[port_idx][idx])) &&
+#ifdef VENDOR_EDIT
+			/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+			 * add for RX-to-TX AFE Loopback for AEC path */
+			(session_type ==
+			atomic_read(
+				&this_adm.copp.session_type[port_idx][idx])) &&
+#endif /* VENDOR_EDIT */
 		    (app_type ==
 			atomic_read(&this_adm.copp.app_type[port_idx][idx])))
 			return idx;
@@ -1527,6 +1547,12 @@ static void adm_reset_data(void)
 			    &this_adm.copp.app_type[i][j], 0);
 			atomic_set(
 			   &this_adm.copp.acdb_id[i][j], 0);
+#ifdef VENDOR_EDIT
+			/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+			 * add for RX-to-TX AFE Loopback for AEC path */
+			atomic_set(
+				&this_adm.copp.session_type[i][j], 0);
+#endif /* VENDOR_EDIT */
 			this_adm.copp.adm_status[i][j] =
 				ADM_STATUS_CALIBRATION_REQUIRED;
 		}
@@ -2830,11 +2856,27 @@ static int adm_arrange_mch_ep2_map_v8(
  * @bit_width: bit width to set for copp
  * @app_type: App type used for this session
  * @acdb_id: ACDB ID of this device
+ * @session_type: type of session
  *
  * Returns 0 on success or error on failure
  */
+#ifdef VENDOR_EDIT
+/*Jianfeng.Qiu@PSW.MM.AudioDriver.Platform.1859584, 2019/02/27,
+ *Add for fix lvimfq not support sample_rate issue.
+ */
+#define VOICE_TOPOLOGY_LVIMFQ_TX_DM    0x1000BFF5
+#endif /* VENDOR_EDIT */
+
+#ifdef VENDOR_EDIT
+/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+ * add for RX-to-TX AFE Loopback for AEC path */
+int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
+	     int perf_mode, uint16_t bit_width, int app_type, int acdb_id,
+	     int session_type)
+#else /* VENDOR_EDIT */
 int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	     int perf_mode, uint16_t bit_width, int app_type, int acdb_id)
+#endif /* VENDOR_EDIT */
 {
 	struct adm_cmd_device_open_v5	open;
 	struct adm_cmd_device_open_v6	open_v6;
@@ -2912,6 +2954,18 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		rate = 16000;
 	}
 
+	#ifdef VENDOR_EDIT
+	/*Jianfeng.Qiu@PSW.MM.AudioDriver.Platform.1859584, 2019/02/27,
+	 *Add for fix lvimfq not support sample_rate issue.
+	 */
+	if ((topology == VOICE_TOPOLOGY_LVIMFQ_TX_DM)
+		&& (rate != ADM_CMD_COPP_OPEN_SAMPLE_RATE_48K)) {
+		pr_info("%s: Change rate %d to 48K for copp 0x%x",
+			__func__, rate, topology);
+		rate = 48000;
+	}
+	#endif /* VENDOR_EDIT */
+
 	if (topology == FFECNS_TOPOLOGY) {
 		this_adm.ffecns_port_id = port_id;
 		pr_debug("%s: ffecns port id =%x\n", __func__,
@@ -2927,10 +2981,19 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	 * This isn't allowed for ULL streams as per the DSP interface
 	 */
 	if (perf_mode != ULTRA_LOW_LATENCY_PCM_MODE)
+#ifdef VENDOR_EDIT
+		/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+		 * add for RX-to-TX AFE Loopback for AEC path */
 		copp_idx = adm_get_idx_if_copp_exists(port_idx, topology,
 						      perf_mode,
 						      rate, bit_width,
-						      app_type);
+						      app_type, session_type);
+#else /* VENDOR_EDIT */
+		copp_idx = adm_get_idx_if_copp_exists(port_idx, topology,
+							  perf_mode,
+							  rate, bit_width,
+							  app_type);
+#endif /* VENDOR_EDIT */
 
 	if (copp_idx < 0) {
 		copp_idx = adm_get_next_available_copp(port_idx);
@@ -2954,6 +3017,12 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 			   app_type);
 		atomic_set(&this_adm.copp.acdb_id[port_idx][copp_idx],
 			   acdb_id);
+#ifdef VENDOR_EDIT
+		/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+		 * add for RX-to-TX AFE Loopback for AEC path */
+		atomic_set(&this_adm.copp.session_type[port_idx][copp_idx],
+			session_type);
+#endif /* VENDOR_EDIT */
 		set_bit(ADM_STATUS_CALIBRATION_REQUIRED,
 		(void *)&this_adm.copp.adm_status[port_idx][copp_idx]);
 		if ((path != ADM_PATH_COMPRESSED_RX) &&
@@ -3133,9 +3202,18 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 			open.endpoint_id_1 = tmp_port;
 			open.endpoint_id_2 = 0xFFFF;
 
+#ifdef VENDOR_EDIT
+			/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+			 * add for RX-to-TX AFE Loopback for AEC path */
+			if (this_adm.ec_ref_rx && (path != 1) &&
+				(afe_get_port_type(tmp_port) == MSM_AFE_PORT_TYPE_TX)) {
+				open.endpoint_id_2 = this_adm.ec_ref_rx;
+			}
+#else /* VENDOR_EDIT */
 			if (this_adm.ec_ref_rx && (path != 1)) {
 				open.endpoint_id_2 = this_adm.ec_ref_rx;
 			}
+#endif /* VENDOR_EDIT */
 
 			open.topology_id = topology;
 
@@ -3661,6 +3739,11 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 		atomic_set(&this_adm.copp.channels[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.bit_width[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.app_type[port_idx][copp_idx], 0);
+#ifdef VENDOR_EDIT
+		/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+		 * add for RX-to-TX AFE Loopback for AEC path */
+		atomic_set(&this_adm.copp.session_type[port_idx][copp_idx], 0);
+#endif /* VENDOR_EDIT */
 
 		clear_bit(ADM_STATUS_CALIBRATION_REQUIRED,
 			(void *)&this_adm.copp.adm_status[port_idx][copp_idx]);

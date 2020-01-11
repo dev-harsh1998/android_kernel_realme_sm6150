@@ -576,6 +576,19 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 		.probe = fe_dai_probe,
 	},
 	{
+		#ifdef VENDOR_EDIT
+		/*Jianfeng.Qiu@PSW.MM.AudioDriver.Machine, 2017/02/20, Add for loopback test*/
+		.playback = {
+			.stream_name = "TX3_CDC_DMA_HOSTLESS Playback",
+			.aif_name = "TX3_CDC_DMA_DL_HL_MMI",
+			.rates = SNDRV_PCM_RATE_8000_48000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 2,
+			.rate_min = 8000,
+			.rate_max = 48000,
+		},
+		#endif /* VENDOR_EDIT */
 		.capture = {
 			.stream_name = "TX3_CDC_DMA_HOSTLESS Capture",
 			.aif_name = "TX3_CDC_DMA_UL_HL",

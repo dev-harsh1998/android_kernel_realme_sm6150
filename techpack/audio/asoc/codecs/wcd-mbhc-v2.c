@@ -34,6 +34,16 @@
 #include "wcd-mbhc-adc.h"
 #include "wcd-mbhc-v2-api.h"
 
+#ifdef pr_debug
+#undef pr_debug
+#define pr_debug pr_warning
+#endif
+
+#ifdef dev_dbg
+#undef dev_dbg
+#define dev_dbg dev_err
+#endif
+
 void wcd_mbhc_jack_report(struct wcd_mbhc *mbhc,
 			  struct snd_soc_jack *jack, int status, int mask)
 {

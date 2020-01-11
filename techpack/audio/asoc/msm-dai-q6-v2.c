@@ -3656,6 +3656,34 @@ static struct snd_soc_dai_driver msm_dai_q6_afe_rx_dai[] = {
 	},
 };
 
+#ifdef VENDOR_EDIT
+/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+ * add for RX-to-TX AFE Loopback for AEC path */
+static struct snd_soc_dai_driver msm_dai_q6_afe_lb_tx_dai[] = {
+	{
+		.capture = {
+			.stream_name = "AFE Loopback Capture",
+			.aif_name = "AFE_LOOPBACK_TX",
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |
+			 SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 |
+			 SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |
+			 SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
+			 SNDRV_PCM_RATE_192000,
+			.formats = (SNDRV_PCM_FMTBIT_S16_LE |
+			SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S24_3LE |
+			SNDRV_PCM_FMTBIT_S32_LE ),
+			.channels_min = 1,
+			.channels_max = 8,
+			.rate_min =     8000,
+			.rate_max =     192000,
+		},
+		.id = AFE_LOOPBACK_TX,
+		.probe = msm_dai_q6_dai_probe,
+		.remove = msm_dai_q6_dai_remove,
+	},
+};
+#endif /* VENDOR_EDIT */
+
 static struct snd_soc_dai_driver msm_dai_q6_afe_tx_dai[] = {
 	{
 		.capture = {
@@ -3667,7 +3695,7 @@ static struct snd_soc_dai_driver msm_dai_q6_afe_tx_dai[] = {
 			.channels_min = 1,
 			.channels_max = 8,
 			.rate_min =     8000,
-			.rate_max =	48000,
+			.rate_max =	    48000,
 		},
 		.ops = &msm_dai_q6_ops,
 		.id = RT_PROXY_DAI_002_TX,
@@ -3683,7 +3711,7 @@ static struct snd_soc_dai_driver msm_dai_q6_afe_tx_dai[] = {
 			.channels_min = 1,
 			.channels_max = 8,
 			.rate_min =     8000,
-			.rate_max =	48000,
+			.rate_max =	    48000,
 		},
 		.ops = &msm_dai_q6_ops,
 		.id = RT_PROXY_DAI_001_TX,
@@ -6068,6 +6096,16 @@ register_slim_capture:
 			pr_err("%s: Device not found stream name %s\n",
 				__func__, stream_name);
 		break;
+#ifdef VENDOR_EDIT
+	/* Yongzhi.Zhang@PSW.MM.AudioDriver.Platform, 2019/08/01,
+	 * add for RX-to-TX AFE Loopback for AEC path */
+	case AFE_LOOPBACK_TX:
+		rc = snd_soc_register_component(&pdev->dev,
+						&msm_dai_q6_component,
+						&msm_dai_q6_afe_lb_tx_dai[0],
+						1);
+		break;
+#endif /* VENDOR_EDIT */
 	case INT_BT_SCO_RX:
 		rc = snd_soc_register_component(&pdev->dev,
 			&msm_dai_q6_component, &msm_dai_q6_bt_sco_rx_dai, 1);

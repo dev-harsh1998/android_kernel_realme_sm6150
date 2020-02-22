@@ -752,6 +752,7 @@ int sde_connector_update_hbm(struct drm_connector *connector)
 				if (OPPO_DISPLAY_POWER_DOZE_SUSPEND == get_oppo_display_power_status() ||
 				    OPPO_DISPLAY_POWER_DOZE == get_oppo_display_power_status()) {
 					rc = dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_AOD_HBM_OFF);
+					fingerprint_mode = true;
 					set_oppo_display_scene(OPPO_DISPLAY_AOD_SCENE);
 				} else {
 					rc = dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_SET_NOLP);
@@ -761,7 +762,9 @@ int sde_connector_update_hbm(struct drm_connector *connector)
 					set_oppo_display_scene(OPPO_DISPLAY_NORMAL_SCENE);
 				}
 			} else if (oppo_display_get_hbm_mode()) {
-				/* Do nothing to skip hbm off */
+				sde_crtc_set_onscreenfinger_defer_sync(c_conn->encoder->crtc->state, true);
+				rc = dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_AOD_HBM_ON);
+			    fingerprint_mode = true;
 			} else if(OPPO_DISPLAY_AOD_SCENE == get_oppo_display_scene()) {
 				rc = dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_AOD_HBM_OFF);
 			} else {

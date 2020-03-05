@@ -2146,6 +2146,7 @@ static ssize_t oppo_display_notify_fp_press(struct device *dev,
 	struct drm_crtc *crtc;
 	static ktime_t on_time;
 	int onscreenfp_status = 0;
+	int vblank_get = -EINVAL;
 	int err;
 
 	sscanf(buf, "%du", &onscreenfp_status);
@@ -2160,10 +2161,15 @@ static ssize_t oppo_display_notify_fp_press(struct device *dev,
 		} else {
 			ktime_t now = ktime_get();
 			ktime_t delta = ktime_sub(now, on_time);
-
-			if (ktime_to_ns(delta) < 300000000)
-				msleep(300 - (ktime_to_ns(delta) / 1000000));
+			int fp_speed_time = ktime_to_ns(delta);
+			if (fp_speed_time < 300000000)
+				msleep(230 - (fp_speed_time / 1000000));
 		}
+	}
+
+	vblank_get = drm_crtc_vblank_get(dsi_connector->state->crtc);
+	if (vblank_get) {
+		pr_err("failed to get crtc vblank\n", vblank_get);
 	}
 
 	oppo_onscreenfp_status = onscreenfp_status;
@@ -2181,6 +2187,8 @@ static ssize_t oppo_display_notify_fp_press(struct device *dev,
 	}
 
 	drm_modeset_unlock_all(drm_dev);
+	if (!vblank_get)
+		drm_crtc_vblank_put(dsi_connector->state->crtc);
 
 	return count;
 }

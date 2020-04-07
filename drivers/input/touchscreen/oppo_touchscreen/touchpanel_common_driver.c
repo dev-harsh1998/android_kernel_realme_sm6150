@@ -23,7 +23,7 @@
 #include <linux/time.h>
 #include <linux/delay.h>
 #include <linux/regulator/consumer.h>
-
+#include <linux/oppo_nfc.h>
 #ifdef CONFIG_TOUCHIRQ_UPDATE_QOS
 #include <linux/pm_qos.h>
 #endif
@@ -128,6 +128,10 @@ __attribute__((weak)) int preconfig_power_control(struct touchpanel_data *ts)
 __attribute__((weak)) int reconfig_power_control(struct touchpanel_data *ts)
 {
     return 0;
+}
+
+bool has_da_nfc(void){
+    return device_has_nfc();
 }
 
 
@@ -1787,6 +1791,24 @@ static const struct file_operations proc_glove_control_fops = {
     .owner = THIS_MODULE,
 };
 
+static ssize_t proc_has_nfc_show(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
+{
+    int ret = 0;
+    char page[PAGESIZE] = {0};
+    if (has_da_nfc())
+        snprintf(page, PAGESIZE-1, "%s", "SUPPORTED");
+    else
+        snprintf(page, PAGESIZE-1, "%s", "NOT SUPPORTED");
+    ret = simple_read_from_buffer(user_buf, count, ppos, page, strlen(page));
+    return ret;
+}
+
+static const struct file_operations proc_has_nfc_fops = {
+    .read  = proc_has_nfc_show,
+    .open  = simple_open,
+    .owner = THIS_MODULE,
+};
+
 static ssize_t cap_vk_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
     struct button_map *button_map;
@@ -3159,6 +3181,12 @@ static int init_touchpanel_proc(struct touchpanel_data *ts)
             ret = -ENOMEM;
             TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);
         }
+    }
+
+    prEntry_tmp = proc_create_data("NFC_CHECK", 0444, prEntry_tp, &proc_has_nfc_fops, ts);
+    if (prEntry_tmp == NULL) {
+        ret = -ENOMEM;
+        TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);
     }
 
     //proc files-step2-5:/proc/touchpanel/glove_mode_enable (Glove mode related interface)

@@ -23,6 +23,12 @@
 #endif
 #include <linux/jiffies.h>
 
+/* Implement a bare minimum nfc check */
+#include <linux/oppo_nfc.h>
+bool device_has_nfc(void){
+	return has_nfc;
+}
+
 struct nqx_platform_data {
 	unsigned int irq_gpio;
 	unsigned int en_gpio;
@@ -1247,6 +1253,8 @@ done:
     kfree(nci_get_fw_cmd);
 #endif /* VENDOR_EDIT */
 
+	// When Success the ret must be 0
+	has_nfc = !ret;
 	return ret;
 }
 

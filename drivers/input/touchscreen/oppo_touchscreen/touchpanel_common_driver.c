@@ -24,7 +24,6 @@
 #include <linux/delay.h>
 #include <linux/regulator/consumer.h>
 
-
 #ifndef TPD_USE_EINT
 #include <linux/hrtimer.h>
 #endif
@@ -40,6 +39,7 @@
 
 #include "touchpanel_common.h"
 #include "util_interface/touch_interfaces.h"
+#include <linux/oppo_nfc.h>
 
 #if GESTURE_RATE_MODE
 #include "gesture_recon_rate.h"
@@ -138,6 +138,9 @@ __attribute__((weak)) void set_algorithm_direction(struct touchpanel_data *ts, i
 #endif
 
 
+bool has_da_nfc(void){
+    return device_has_nfc();
+}
 
 
 /*******Part3:Function  Area********************************/
@@ -1877,6 +1880,24 @@ static const struct file_operations proc_glove_control_fops = {
     .owner = THIS_MODULE,
 };
 
+static ssize_t proc_has_nfc_show(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
+{
+    int ret = 0;
+    char page[PAGESIZE] = {0};
+    if (has_da_nfc())
+        snprintf(page, PAGESIZE-1, "%s", "SUPPORTED");
+    else
+        snprintf(page, PAGESIZE-1, "%s", "NOT SUPPORTED");
+    ret = simple_read_from_buffer(user_buf, count, ppos, page, strlen(page));
+    return ret;
+}
+
+static const struct file_operations proc_has_nfc_fops = {
+    .read  = proc_has_nfc_show,
+    .open  = simple_open,
+    .owner = THIS_MODULE,
+};
+
 static ssize_t cap_vk_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
     struct button_map *button_map;
@@ -3363,6 +3384,12 @@ static int init_touchpanel_proc(struct touchpanel_data *ts)
             ret = -ENOMEM;
             TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);
         }
+    }
+
+    prEntry_tmp = proc_create_data("NFC_CHECK", 0444, prEntry_tp, &proc_has_nfc_fops, ts);
+    if (prEntry_tmp == NULL) {
+        ret = -ENOMEM;
+        TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);
     }
 
     //proc files-step2-5:/proc/touchpanel/glove_mode_enable (Glove mode related interface)

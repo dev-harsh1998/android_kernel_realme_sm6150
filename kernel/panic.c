@@ -31,8 +31,11 @@
 #include <trace/events/exception.h>
 #include <soc/qcom/minidump.h>
 
+
+
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
+
 
 int panic_on_oops = CONFIG_PANIC_ON_OOPS_VALUE;
 static unsigned long tainted_mask;

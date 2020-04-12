@@ -36,6 +36,11 @@
 
 #include "power.h"
 
+#ifdef VENDOR_EDIT
+//ZhongWenjie@psw.bsp.tp 2019/04/24 modified for stop system enter sleep before low irq handled
+__attribute__((weak)) int check_touchirq_triggered(void) {return 0;}
+#endif /* VENDOR_EDIT */
+
 const char * const pm_labels[] = {
 	[PM_SUSPEND_TO_IDLE] = "freeze",
 	[PM_SUSPEND_STANDBY] = "standby",
@@ -324,9 +329,20 @@ MODULE_PARM_DESC(pm_test_delay,
 static int suspend_test(int level)
 {
 #ifdef CONFIG_PM_DEBUG
+#ifdef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
+	pr_info("%s pm_test_level:%d, level:%d\n", __func__,
+		pm_test_level, level);
+#endif /* VENDOR_EDIT */
 	if (pm_test_level == level) {
+#ifndef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
 		pr_info("suspend debug: Waiting for %d second(s).\n",
 				pm_test_delay);
+#else
+		pr_err("suspend debug: Waiting for %d second(s).\n",
+				pm_test_delay);
+#endif
 		mdelay(pm_test_delay * 1000);
 		return 1;
 	}
@@ -395,8 +411,16 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 	int error, last_dev;
 
 	error = platform_suspend_prepare(state);
+#ifndef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
 	if (error)
 		goto Platform_finish;
+#else
+	if (error) {
+		pr_info("%s platform_suspend_prepare fail\n", __func__);
+		goto Platform_finish;
+	}
+#endif /* VENDOR_EDIT */
 
 	error = dpm_suspend_late(PMSG_SUSPEND);
 	if (error) {
@@ -408,8 +432,16 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		goto Platform_finish;
 	}
 	error = platform_suspend_prepare_late(state);
+#ifndef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
 	if (error)
 		goto Devices_early_resume;
+#else
+	if (error) {
+		pr_info("%s prepare late fail\n", __func__);
+		goto Devices_early_resume;
+	}
+#endif /* VENDOR_EDIT */
 
 	if (state == PM_SUSPEND_TO_IDLE && pm_test_level != TEST_PLATFORM) {
 		s2idle_loop();
@@ -426,11 +458,27 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		goto Platform_early_resume;
 	}
 	error = platform_suspend_prepare_noirq(state);
+#ifndef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
 	if (error)
 		goto Platform_wake;
+#else
+	if (error) {
+		pr_info("%s prepare_noirq fail\n", __func__);
+		goto Platform_wake;
+	}
+#endif /* VENDOR_EDIT */
 
+#ifndef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
 	if (suspend_test(TEST_PLATFORM))
 		goto Platform_wake;
+#else
+	if (suspend_test(TEST_PLATFORM)) {
+		pr_info("%s test_platform fail\n", __func__);
+		goto Platform_wake;
+	}
+#endif /* VENDOR_EDIT */
 
 	error = disable_nonboot_cpus();
 	if (error || suspend_test(TEST_CPUS)) {
@@ -440,7 +488,17 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
-
+#ifdef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
+	pr_info("%s syscore_suspend\n", __func__);
+#endif /* VENDOR_EDIT */
+#ifdef VENDOR_EDIT
+//ZhongWenjie@psw.bsp.tp 2019/04/24 modified for stop system enter sleep before low irq handled
+	if (check_touchirq_triggered()) {
+		error = -EBUSY;
+		goto Enable_irqs;
+	}
+#endif /* VENDOR_EDIT */
 	error = syscore_suspend();
 	if (!error) {
 		*wakeup = pm_wakeup_pending();
@@ -459,6 +517,10 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		syscore_resume();
 	}
 
+#ifdef VENDOR_EDIT
+//ZhongWenjie@psw.bsp.tp 2019/04/24 modified for stop system enter sleep before low irq handled
+ Enable_irqs:
+#endif /* VENDOR_EDIT */
 	arch_suspend_enable_irqs();
 	BUG_ON(irqs_disabled());
 
@@ -489,15 +551,30 @@ int suspend_devices_and_enter(suspend_state_t state)
 	int error;
 	bool wakeup = false;
 
+#ifndef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
 	if (!sleep_state_supported(state))
 		return -ENOSYS;
+#else
+	if (!sleep_state_supported(state)) {
+		pr_info("sleep_state_supported false\n");
+		return -ENOSYS;
+	}
+#endif /* VENDOR_EDIT */
 
 	pm_suspend_target_state = state;
 
 	error = platform_suspend_begin(state);
+#ifndef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
 	if (error)
 		goto Close;
-
+#else
+	if (error) {
+		pr_info("%s platform_suspend_begin fail\n", __func__);
+		goto Close;
+	}
+#endif /* VENDOR_EDIT */
 	suspend_console();
 	suspend_test_start();
 	error = dpm_suspend_start(PMSG_SUSPEND);
@@ -507,13 +584,24 @@ int suspend_devices_and_enter(suspend_state_t state)
 		goto Recover_platform;
 	}
 	suspend_test_finish("suspend devices");
+#ifndef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
 	if (suspend_test(TEST_DEVICES))
 		goto Recover_platform;
-
+#else
+	if (suspend_test(TEST_DEVICES)) {
+		pr_info("%s TEST_DEVICES fail\n", __func__);
+		goto Recover_platform;
+	}
+#endif /* VENDOR_EDIT */
 	do {
 		error = suspend_enter(state, &wakeup);
 	} while (!error && !wakeup && platform_suspend_again(state));
 
+#ifdef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
+	pr_info("suspend_enter end, error:%d, wakeup:%d\n", error, wakeup);
+#endif /* VENDOR_EDIT */
  Resume_devices:
 	suspend_test_start();
 	dpm_resume_end(PMSG_RESUME);
@@ -566,10 +654,22 @@ static int enter_state(suspend_state_t state)
 		}
 #endif
 	} else if (!valid_state(state)) {
+#ifdef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
+		pr_info("%s invalid_state\n", __func__);
+#endif /* VENDOR_EDIT */
 		return -EINVAL;
 	}
+#ifndef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
 	if (!mutex_trylock(&pm_mutex))
 		return -EBUSY;
+#else
+	if (!mutex_trylock(&pm_mutex)) {
+		pr_info("%s mutex_trylock fail\n", __func__);
+		return -EBUSY;
+	}
+#endif /* VENDOR_EDIT */
 
 	if (state == PM_SUSPEND_TO_IDLE)
 		s2idle_begin();
@@ -585,9 +685,21 @@ static int enter_state(suspend_state_t state)
 	pm_pr_dbg("Preparing system for sleep (%s)\n", mem_sleep_labels[state]);
 	pm_suspend_clear_flags();
 	error = suspend_prepare(state);
+#ifndef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
 	if (error)
 		goto Unlock;
+#else
+	if (error) {
+		pr_info("%s suspend_prepare error:%d\n", __func__, error);
+		goto Unlock;
+	}
+#endif /* VENDOR_EDIT */
 
+#ifdef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
+	pr_info("%s suspend_prepare success\n", __func__);
+#endif /* VENDOR_EDIT */
 	if (suspend_test(TEST_FREEZER))
 		goto Finish;
 
@@ -596,6 +708,10 @@ static int enter_state(suspend_state_t state)
 	pm_restrict_gfp_mask();
 	error = suspend_devices_and_enter(state);
 	pm_restore_gfp_mask();
+#ifdef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
+	pr_info("%s suspend_devices_and_enter end\n", __func__);
+#endif /* VENDOR_EDIT */
 
  Finish:
 	events_check_enabled = false;
@@ -613,9 +729,16 @@ static void pm_suspend_marker(char *annotation)
 
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &tm);
+#ifndef VENDOR_EDIT
+//Nanwei.Deng@BSP.CHG.Basic 2018/05/03 modify for power debug
 	pr_info("PM: suspend %s %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 		annotation, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 		tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+#else
+	pr_err("PM: suspend %s %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
+		annotation, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+		tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+#endif /* VENDOR_EDIT */
 }
 
 /**
@@ -625,6 +748,11 @@ static void pm_suspend_marker(char *annotation)
  * Check if the value of @state represents one of the supported states,
  * execute enter_state() and update system suspend statistics.
  */
+//yangmingjin@BSP.POWER.Basic 2019/05/30 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+extern void set_ipc_router_debug_mask(int ipc_router_debug_mask);
+#endif
+/*VENDOR_EDIT*/
 int pm_suspend(suspend_state_t state)
 {
 	int error;
@@ -633,7 +761,11 @@ int pm_suspend(suspend_state_t state)
 		return -EINVAL;
 
 	pm_suspend_marker("entry");
+//yangmingjin@BSP.POWER.Basic 2019/05/30 delete for RM_TAG_POWER_DEBUG
+#ifndef VENDOR_EDIT
 	pr_info("suspend entry (%s)\n", mem_sleep_labels[state]);
+#endif
+/*VENDOR_EDIT*/
 	error = enter_state(state);
 	if (error) {
 		suspend_stats.fail++;
@@ -641,8 +773,17 @@ int pm_suspend(suspend_state_t state)
 	} else {
 		suspend_stats.success++;
 	}
+//yangmingjin@BSP.POWER.Basic 2019/05/30 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+    set_ipc_router_debug_mask(0);
+#endif
+/*VENDOR_EDIT*/
 	pm_suspend_marker("exit");
+//yangmingjin@BSP.POWER.Basic 2019/05/30 delete for RM_TAG_POWER_DEBUG
+#ifndef VENDOR_EDIT
 	pr_info("suspend exit\n");
+#endif
+/*VENDOR_EDIT*/
 	return error;
 }
 EXPORT_SYMBOL(pm_suspend);

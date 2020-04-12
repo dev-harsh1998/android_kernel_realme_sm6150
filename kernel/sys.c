@@ -72,6 +72,12 @@
 #include <linux/uaccess.h>
 #include <asm/io.h>
 #include <asm/unistd.h>
+#if defined(VENDOR_EDIT) && defined(CONFIG_OPPO_HEALTHINFO)
+/* Kui.Zhang@TEC.Kernel.mm, 2019-06-06,
+ * used for record the process which change stack rlimit >= 32MB
+ */
+#include <soc/oppo/oppo_healthinfo.h>
+#endif
 
 #ifndef SET_UNALIGN_CTL
 # define SET_UNALIGN_CTL(a, b)	(-EINVAL)
@@ -1469,6 +1475,12 @@ int do_prlimit(struct task_struct *tsk, unsigned int resource,
 {
 	struct rlimit *rlim;
 	int retval = 0;
+#if defined(VENDOR_EDIT) && defined(CONFIG_OPPO_HEALTHINFO)
+	/* Kui.Zhang@TEC.Kernel.mm, 2019-06-06,
+	 * flag the process which change stack rlimit >= 32MB
+	 */
+	int rt_changed = 0;
+#endif
 
 	if (resource >= RLIM_NLIMITS)
 		return -EINVAL;
@@ -1510,11 +1522,39 @@ int do_prlimit(struct task_struct *tsk, unsigned int resource,
 	if (!retval) {
 		if (old_rlim)
 			*old_rlim = *rlim;
+#if defined(VENDOR_EDIT) && defined(CONFIG_OPPO_HEALTHINFO)
+		/* Kui.Zhang@TEC.Kernel.mm, 2019-06-06,
+		 * check whether the process changes stack rlimit >= 32MB
+		 */
+#define STACK_RLIMIT_OVERFFLOW (32<<20)
+		if (new_rlim) {
+			if ((resource == RLIMIT_STACK) && is_compat_task() &&
+				(new_rlim->rlim_cur > STACK_RLIMIT_OVERFFLOW))
+				rt_changed = 1;
+
+			*rlim = *new_rlim;
+		}
+#else
 		if (new_rlim)
 			*rlim = *new_rlim;
+#endif
+
 	}
 	task_unlock(tsk->group_leader);
 
+#if defined(VENDOR_EDIT) && defined(CONFIG_OPPO_HEALTHINFO)
+	/* Kui.Zhang@TEC.Kernel.mm, 2019-06-06,
+	 * upload message of the process which change stack rlimit >= 32MB
+	 */
+
+	if (rt_changed) {
+		char msg[128] = {0};
+
+		snprintf(msg, 127, "{\"version\":1, \"pid\":%d, \"size\":%ld}",
+			current->tgid, (long)rlim->rlim_cur);
+		ohm_action_trig_with_msg(OHM_RLIMIT_MON, msg);
+	}
+#endif
 	/*
 	 * RLIMIT_CPU handling.   Note that the kernel fails to return an error
 	 * code if it rejected the user's attempt to set RLIMIT_CPU.  This is a

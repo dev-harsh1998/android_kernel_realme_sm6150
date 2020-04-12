@@ -22,6 +22,37 @@
 #include <trace/events/sched.h>
 #include <linux/sched/sysctl.h>
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /*
  * The number of tasks checked:
  */
@@ -90,12 +121,48 @@ static void check_hung_task(struct task_struct *t, unsigned long timeout)
 {
 	unsigned long switch_count = t->nvcsw + t->nivcsw;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	/*
 	 * Ensure the task is not frozen.
 	 * Also, skip vfork and any other user process that freezer should skip.
 	 */
 	if (unlikely(t->flags & (PF_FROZEN | PF_FREEZER_SKIP)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	    return;
+
 
 	/*
 	 * When a freshly created task is scheduled once, changes its state to
@@ -111,6 +178,56 @@ static void check_hung_task(struct task_struct *t, unsigned long timeout)
 	}
 
 	trace_sched_process_hang(t);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 	if (!sysctl_hung_task_warnings && !sysctl_hung_task_panic)
 		return;
@@ -137,8 +254,24 @@ static void check_hung_task(struct task_struct *t, unsigned long timeout)
 	touch_nmi_watchdog();
 
 	if (sysctl_hung_task_panic) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 		hung_task_show_lock = true;
 		hung_task_call_panic = true;
+
 	}
 }
 
@@ -176,6 +309,12 @@ static void check_hung_uninterruptible_tasks(unsigned long timeout)
 	int batch_count = HUNG_TASK_BATCHING;
 	struct task_struct *g, *t;
 
+
+
+
+
+
+
 	/*
 	 * If the system crashed already then all bets are off,
 	 * do not report extra hung tasks:
@@ -201,6 +340,23 @@ static void check_hung_uninterruptible_tasks(unsigned long timeout)
 				check_hung_task(t, timeout);
 	}
  unlock:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	rcu_read_unlock();
 	if (hung_task_show_lock)
 		debug_show_all_locks();

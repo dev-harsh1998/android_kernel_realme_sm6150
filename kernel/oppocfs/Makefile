@@ -1,0 +1,1 @@
+obj-y += oppo_cfs_common.o

@@ -278,6 +278,16 @@ static u64 notrace suspended_sched_clock_read(void)
 	return cd.read_data[seq & 1].epoch_cyc;
 }
 
+#ifdef VENDOR_EDIT  //yunqing.zeng@bsp.power.basic  2019-06-29 Add for output sleep/resume duration friendly
+//#define MSM_ARCH_TIMER_FREQ (19200000/MSEC_PER_SEC)
+#define MSM_ARCH_TIMER_FREQ (19200)
+static inline u64 get_time_in_msec(u64 counter)
+{
+	do_div(counter, MSM_ARCH_TIMER_FREQ);
+	return counter;
+}
+#endif /* VENDOR_EDIT */
+
 int sched_clock_suspend(void)
 {
 	struct clock_read_data *rd = &cd.read_data[0];
@@ -286,13 +296,18 @@ int sched_clock_suspend(void)
 
 	suspend_ns = rd->epoch_ns;
 	suspend_cycles = rd->epoch_cyc;
+//yangmingjin@BSP.POWER.Basic 2019/05/30 delete for RM_TAG_POWER_DEBUG
+#ifndef VENDOR_EDIT
 	pr_info("suspend ns:%17llu	suspend cycles:%17llu\n",
 				rd->epoch_ns, rd->epoch_cyc);
+#endif
+/*VENDOR_EDIT*/
 	hrtimer_cancel(&sched_clock_timer);
 	rd->read_sched_clock = suspended_sched_clock_read;
 
 	return 0;
 }
+
 
 void sched_clock_resume(void)
 {
@@ -300,7 +315,11 @@ void sched_clock_resume(void)
 
 	rd->epoch_cyc = cd.actual_read_sched_clock();
 	resume_cycles = rd->epoch_cyc;
+//yangmingjin@BSP.POWER.Basic 2019/05/30 delete for RM_TAG_POWER_DEBUG
+#ifndef VENDOR_EDIT
 	pr_info("resume cycles:%17llu\n", rd->epoch_cyc);
+#endif
+/*VENDOR_EDIT*/
 	hrtimer_start(&sched_clock_timer, cd.wrap_kt, HRTIMER_MODE_REL);
 	rd->read_sched_clock = cd.actual_read_sched_clock;
 }

@@ -819,7 +819,13 @@ config HAVE_LOW_MEMORY_KILLER
 
 config PROCESS_RECLAIM
 	bool "Enable process reclaim"
-	depends on PROC_FS
+#if defined(VENDOR_EDIT)
+# Kui.Zhang@PSW.BSP.Kernel.Performance, 2019-07-29, need check task is fg or not
+# during process recalim to fix blackscreen,task_is_fg depends on OPPO_FG_OPT
+	depends on PROC_FS && OPPO_FG_OPT
+#else
+#	depends on PROC_FS
+#endif
 	default y
 	help
 	 It allows to reclaim pages of the process by /proc/pid/reclaim.
@@ -832,3 +838,43 @@ config PROCESS_RECLAIM
 	 (addr, addr + size-bytes) of the process.
 
 	 Any other value is ignored.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

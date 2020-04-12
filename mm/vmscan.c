@@ -123,6 +123,13 @@ struct scan_control {
 	 * on memory until last task zap it.
 	 */
 	struct vm_area_struct *target_vma;
+
+#if defined(VENDOR_EDIT) && defined(CONFIG_PROCESS_RECLAIM)
+	/* robin.ren@PSW.BSP.Kernel.Performance, 2019-03-13,
+	 * use mm_walk to regonize the behaviour of process reclaim.
+	 */
+	struct mm_walk *walk;
+#endif
 };
 
 #ifdef ARCH_HAS_PREFETCH
@@ -983,6 +990,13 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 		enum page_references references = PAGEREF_RECLAIM;
 		bool dirty, writeback;
 
+#if defined(VENDOR_EDIT) && defined(CONFIG_PROCESS_RECLAIM)
+		/* Kui.Zhang@PSW.BSP.Kernel.Performance, 2018-12-25, check whether the
+		 * reclaim process should cancel*/
+		if (sc->walk && is_reclaim_should_cancel(sc->walk))
+			break;
+#endif
+
 		cond_resched();
 
 		page = lru_to_page(page_list);
@@ -1409,8 +1423,14 @@ unsigned long reclaim_clean_pages_from_list(struct zone *zone,
 }
 
 #ifdef CONFIG_PROCESS_RECLAIM
+#ifdef VENDOR_EDIT
+/* Kui.Zhang@PSW.BSP.Kernel.Performance, 2018-12-25, record the scaned task*/
+unsigned long reclaim_pages_from_list(struct list_head *page_list,
+			struct vm_area_struct *vma, struct mm_walk *walk)
+#else
 unsigned long reclaim_pages_from_list(struct list_head *page_list,
 					struct vm_area_struct *vma)
+#endif
 {
 	struct scan_control sc = {
 		.gfp_mask = GFP_KERNEL,
@@ -1419,6 +1439,10 @@ unsigned long reclaim_pages_from_list(struct list_head *page_list,
 		.may_unmap = 1,
 		.may_swap = 1,
 		.target_vma = vma,
+#ifdef VENDOR_EDIT
+		/* Kui.Zhang@PSW.BSP.Kernel.Performance, 2018-12-25, record the scaned task*/
+		.walk = walk,
+#endif
 	};
 
 	unsigned long nr_reclaimed;
@@ -1672,7 +1696,13 @@ int isolate_lru_page(struct page *page)
 	int ret = -EBUSY;
 
 	VM_BUG_ON_PAGE(!page_count(page), page);
+#if defined(VENDOR_EDIT) && defined(CONFIG_PROCESS_RECLAIM)
+	/* Kui.Zhang@PSW.TEC.Kernel.Performance, 2019-01-08, Because process reclaim is doing page by
+	 * page, so there many compound pages are relcaimed, so too many warning msg on this case. */
+	WARN_RATELIMIT((!current_is_reclaimer() && PageTail(page)), "trying to isolate tail page");
+#else
 	WARN_RATELIMIT(PageTail(page), "trying to isolate tail page");
+#endif
 
 	if (PageLRU(page)) {
 		struct zone *zone = page_zone(page);
@@ -1823,6 +1853,29 @@ static int current_may_throttle(void)
 		current->backing_dev_info == NULL ||
 		bdi_write_congested(current->backing_dev_info);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*
  * shrink_inactive_list() is a helper for shrink_node().  It returns the number
@@ -2277,6 +2330,14 @@ static void get_scan_count(struct lruvec *lruvec, struct mem_cgroup *memcg,
 	unsigned long anon, file;
 	unsigned long ap, fp;
 	enum lru_list lru;
+
+
+
+
+
+
+
+
 
 	/* If we have no swap space, do not bother scanning anon pages. */
 	if (!sc->may_swap || mem_cgroup_get_nr_swap_pages(memcg) <= 0) {

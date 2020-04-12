@@ -3036,6 +3036,8 @@ int do_swap_page(struct vm_fault *vmf)
 	struct page *page = NULL, *swapcache;
 	struct mem_cgroup *memcg;
 	swp_entry_t entry;
+	struct swap_info_struct *si;
+	int swp_cnt;
 	pte_t pte;
 	int locked;
 	int exclusive = 0;
@@ -3077,14 +3079,14 @@ int do_swap_page(struct vm_fault *vmf)
 
 
 	delayacct_set_flag(DELAYACCT_PF_SWAPIN);
+	si = swp_swap_info(entry);
+	swp_cnt = __swap_count(si, entry);
 	page = lookup_swap_cache(entry, vma, vmf->address);
 	swapcache = page;
 
 	if (!page) {
-		struct swap_info_struct *si = swp_swap_info(entry);
 
-		if (si->flags & SWP_SYNCHRONOUS_IO &&
-				__swap_count(si, entry) == 1) {
+		if (si->flags & SWP_SYNCHRONOUS_IO && swp_cnt == 1) {
 			/* skip swapcache */
 			page = alloc_page_vma(GFP_HIGHUSER_MOVABLE, vma,
 							vmf->address);

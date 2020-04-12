@@ -133,6 +133,28 @@ mpath=`dirname $$mdpath`;\
 ko=`find $$mpath/kernel -type f -name *.ko`;\
 for i in $$ko; do mv $$i $(KERNEL_MODULES_OUT)/; done;\
 fi
+#ifdef VENDOR_EIDT
+#Xiao.Li@PSW.CN.WiFi.Network.1471780, 2018/06/26,
+#Add for limit speed function
+imq=`find $(KERNEL_MODULES_OUT)/ -type f -name imq.ko`;\
+if [ "$$imq" != "" ];then\
+mkdir -p $(PRODUCT_OUT)/system/lib/modules/;\
+cp -Rf  $(KERNEL_MODULES_OUT)/imq.ko $(PRODUCT_OUT)/system/lib/modules/ ;\
+fi
+xtIMQ=`find $(KERNEL_MODULES_OUT)/ -type f -name xt_IMQ.ko`;\
+if [ "$$xtIMQ" != "" ];then\
+cp -Rf  $(KERNEL_MODULES_OUT)/xt_IMQ.ko $(PRODUCT_OUT)/system/lib/modules/ ;\
+fi
+#endif
+#ifdef VENDOR_EIDT
+#Zuofa.Liu@PSW.CN.WiFi.Basic.SoftAp.2042032, 2019/06/11,
+#Add for softap limit speed function
+ifb=`find $(KERNEL_MODULES_OUT)/ -type f -name ifb.ko`;\
+if [ "$$ifb" != "" ];then\
+mkdir -p $(PRODUCT_OUT)/system/lib/modules/;\
+cp -Rf  $(KERNEL_MODULES_OUT)/ifb.ko $(PRODUCT_OUT)/system/lib/modules/ ;\
+fi
+#endif
 endef
 
 define clean-module-folder

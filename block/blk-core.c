@@ -1798,6 +1798,14 @@ void blk_init_request_from_bio(struct request *req, struct bio *bio)
 {
 	struct io_context *ioc = rq_ioc(bio);
 
+
+
+
+
+
+
+
+
 	if (bio->bi_opf & REQ_RAHEAD)
 		req->cmd_flags |= REQ_FAILFAST_MASK;
 
@@ -2270,6 +2278,78 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(generic_make_request);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /**
  * submit_bio - submit a bio to the block device layer for I/O

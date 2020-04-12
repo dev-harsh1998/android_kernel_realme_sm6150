@@ -1905,6 +1905,12 @@ static void qcom_glink_notif_reset(void *data)
 	spin_unlock_irqrestore(&glink->idr_lock, flags);
 }
 
+//yangmingjin@BSP.POWER.Basic 2019/06/27 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+#define GLINK_NATIVE_IRQ_NUM_MAX 10
+#define GLINK_NATIVE_IRQ_NAME_LEN 24
+static char glink_native_irq_names[GLINK_NATIVE_IRQ_NUM_MAX][GLINK_NATIVE_IRQ_NAME_LEN];
+#endif/*VENDOR_EDIT*/
 struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 					   unsigned long features,
 					   struct qcom_glink_pipe *rx,
@@ -1916,6 +1922,12 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	int size;
 	int irq;
 	int ret;
+//yangmingjin@BSP.POWER.Basic 2019/06/27 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+	static int glink_native_irq_index = 1;
+	char *glink_native_irq_name = glink_native_irq_names[0];
+	snprintf(glink_native_irq_names[0], GLINK_NATIVE_IRQ_NAME_LEN, "glink-native");
+#endif/*VENDOR_EDIT*/
 
 	glink = devm_kzalloc(dev, sizeof(*glink), GFP_KERNEL);
 	if (!glink)
@@ -1968,10 +1980,25 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 		dev_err(dev, "failed to register early notif %d\n", ret);
 
 	irq = of_irq_get(dev->of_node, 0);
+//yangmingjin@BSP.POWER.Basic 2019/06/27 add for RM_TAG_POWER_DEBUG
+#ifndef VENDOR_EDIT
 	ret = devm_request_irq(dev, irq,
 			       qcom_glink_native_intr,
 			       IRQF_NO_SUSPEND | IRQF_SHARED,
 			       "glink-native", glink);
+#else
+	if(glink_native_irq_index < GLINK_NATIVE_IRQ_NUM_MAX){
+		snprintf(glink_native_irq_names[glink_native_irq_index], GLINK_NATIVE_IRQ_NAME_LEN, "glink-native-%s", glink->name);
+		glink_native_irq_name = glink_native_irq_names[glink_native_irq_index];
+		glink_native_irq_index++;
+	}
+	ret = devm_request_irq(dev, irq,
+			       qcom_glink_native_intr,
+			       IRQF_NO_SUSPEND | IRQF_SHARED,
+			       glink_native_irq_name, glink);
+    pr_err("qcom_glink_native_probe: def:%s final:%s index:%d irq:%d\n", glink_native_irq_names[0], glink_native_irq_name, glink_native_irq_index,irq);
+#endif
+/*VENDOR_EDIT*/
 	if (ret) {
 		dev_err(dev, "failed to request IRQ\n");
 		goto unregister;

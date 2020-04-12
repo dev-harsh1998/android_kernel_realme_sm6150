@@ -83,6 +83,18 @@ static void sdhci_dump_state(struct sdhci_host *host)
 
 void sdhci_dumpregs(struct sdhci_host *host)
 {
+
+
+
+
+
+
+
+
+
+
+
+
 	MMC_TRACE(host->mmc,
 		"%s: 0x04=0x%08x 0x06=0x%08x 0x0E=0x%08x 0x30=0x%08x 0x34=0x%08x 0x38=0x%08x\n",
 		__func__,

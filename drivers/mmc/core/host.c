@@ -720,7 +720,10 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	setup_timer(&host->retune_timer, mmc_retune_timer, (unsigned long)host);
 
 	mutex_init(&host->rpmb_req_mutex);
-
+#ifdef VENDOR_EDIT
+    //Lycan.Wang@Prd.BasicDrv, 2014-07-09 Add for retry 5 times when new sdcard init error
+    host->detect_change_retry = 5;
+#endif /* VENDOR_EDIT */
 	/*
 	 * By default, hosts do not support SGIO or large requests.
 	 * They have to set these according to their abilities.

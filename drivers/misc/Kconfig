@@ -553,6 +553,15 @@ config QPNP_MISC
 	  and the driver provides an API to check if this interrupt
 	  is available on the current PMIC chip.
 
+config OPPO_RF_CABLE_MONITOR
+	bool "OPPO rf cable monitor system"
+	depends on OF
+	select PINMUX
+	default n
+	help
+	  Say Y here to enable OPPO rf cable monitor system support
+
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -566,6 +575,7 @@ source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/fpr_FingerprintCard/Kconfig"
+source "drivers/misc/oppo_motor/Kconfig"
 endmenu
 
 config OKL4_LINK_SHBUF

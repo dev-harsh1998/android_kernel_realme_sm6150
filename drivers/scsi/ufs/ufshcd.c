@@ -49,6 +49,11 @@
 #include "ufs-debugfs.h"
 #include "ufs-qcom.h"
 
+#ifdef VENDOR_EDIT
+//zhenjian Jiang@PSW.BSP.Storage.UFS, 2018-05-04 add for ufs device in /proc/devinfo 
+#include <soc/oppo/device_info.h>
+#endif
+
 #ifdef CONFIG_DEBUG_FS
 
 static int ufshcd_tag_req_type(struct request *rq)
@@ -6396,6 +6401,16 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 					blk_update_latency_hist(&hba->io_lat_s,
 						(rq_data_dir(req) == READ),
 						delta_us);
+#ifdef VENDOR_EDIT
+//yh@BSP.Storage.UFS, 2019-02-19 add for ufs io latency info calculate
+					if (bio_has_data(req->bio) && (delta_us > 5000))
+					{
+						trace_printk("ufs_io_latency:%06lld us, io_type:%s, LBA:%08x, size:%d\n",
+								delta_us, (rq_data_dir(req) == READ) ? "R" : "W",
+								req->bio->bi_iter.bi_sector,
+								cpu_to_be32(cmd->sdb.length));
+					}
+#endif
 				}
 			}
 
@@ -8222,6 +8237,7 @@ static int ufshcd_scsi_add_wlus(struct ufs_hba *hba)
 		goto out;
 	}
 	scsi_device_put(hba->sdev_ufs_device);
+
 
 	if (is_bootable_dev) {
 		sdev_boot = __scsi_add_device(hba->host, 0, 0,

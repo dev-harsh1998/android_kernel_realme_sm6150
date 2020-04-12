@@ -218,6 +218,14 @@ unsigned int cpufreq_generic_get(unsigned int cpu)
 }
 EXPORT_SYMBOL_GPL(cpufreq_generic_get);
 
+#ifdef VENDOR_EDIT
+struct list_head *get_cpufreq_policy_list(void)
+{
+    return &cpufreq_policy_list;
+}
+EXPORT_SYMBOL(get_cpufreq_policy_list);
+#endif /* VENDOR_EDIT */
+
 /**
  * cpufreq_cpu_get: returns policy for a cpu and marks it busy.
  *
@@ -658,6 +666,10 @@ static ssize_t show_##file_name				\
 }
 
 show_one(cpuinfo_min_freq, cpuinfo.min_freq);
+
+
+
+
 show_one(cpuinfo_transition_latency, cpuinfo.transition_latency);
 show_one(scaling_min_freq, min);
 show_one(scaling_max_freq, max);

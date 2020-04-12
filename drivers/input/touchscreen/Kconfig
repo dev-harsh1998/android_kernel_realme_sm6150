@@ -1289,4 +1289,9 @@ config TOUCHSCREEN_SYNAPTICS_DSX
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 
+#ifdef VENDOR_EDIT
+#ZhongWenjie@BSP.group 2019-03-29 add for enable tp function
+source "drivers/input/touchscreen/oppo_touchscreen/Kconfig"
+#endif
+
 endif

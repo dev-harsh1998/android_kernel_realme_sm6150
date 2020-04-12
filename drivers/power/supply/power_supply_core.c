@@ -34,6 +34,10 @@ static struct device_type power_supply_dev_type;
 
 #define POWER_SUPPLY_DEFERRED_REGISTER_TIME	msecs_to_jiffies(10)
 
+
+
+
+
 static bool __power_supply_is_supplied_by(struct power_supply *supplier,
 					 struct power_supply *supply)
 {
@@ -94,7 +98,11 @@ static void power_supply_changed_work(struct work_struct *work)
 		spin_unlock_irqrestore(&psy->changed_lock, flags);
 		class_for_each_device(power_supply_class, NULL, psy,
 				      __power_supply_changed_work);
+
 		power_supply_update_leds(psy);
+
+
+
 		atomic_notifier_call_chain(&power_supply_notifier,
 				PSY_EVENT_PROP_CHANGED, psy);
 		kobject_uevent(&psy->dev.kobj, KOBJ_CHANGE);

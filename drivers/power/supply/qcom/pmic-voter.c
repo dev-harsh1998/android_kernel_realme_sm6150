@@ -359,6 +359,12 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 
 	lock_votable(votable);
 
+#ifdef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-05-14  for charge */
+	if (strcmp("SW_ICL_MAX_VOTER", client_str) == 0 && strcmp("USB_ICL", votable->name) == 0)
+		goto out;
+#endif
+
 	client_id = get_client_id(votable, client_str);
 	if (client_id < 0) {
 		rc = client_id;

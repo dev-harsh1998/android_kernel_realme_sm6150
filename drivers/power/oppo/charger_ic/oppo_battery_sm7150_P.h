@@ -20,7 +20,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/consumer.h>
 #include <linux/extcon.h>
-#include "storm-watch.h"
+#include "../../../../kernel/msm-4.14/drivers/power/supply/qcom/storm-watch.h"
 
 enum print_reason {
 	PR_INTERRUPT	= BIT(0),
@@ -31,18 +31,9 @@ enum print_reason {
 	PR_WLS		= BIT(5),
 };
 
-#ifdef VENDOR_EDIT
-/* Yichun.Chen  PSW.BSP.CHG  2019-04-08  for charge */
 #define DIVIDER_SET_VOTER		"DIVIDER_SET_VOTER"
-#endif
-#ifdef VENDOR_EDIT
-/* Yichun.Chen  PSW.BSP.CHG  2019-04-08  for charge */
 #define PD_DIS_VOTER			"PD_DIS_VOTER"
-#endif
-#ifdef VENDOR_EDIT
-/* Yichun.Chen  PSW.BSP.CHG  2019-04-08  for charge */
 #define SVOOC_OTG_VOTER			"SVOOC_OTG_VOTER"
-#endif
 #define DEFAULT_VOTER			"DEFAULT_VOTER"
 #define USER_VOTER			"USER_VOTER"
 #define PD_VOTER			"PD_VOTER"
@@ -103,12 +94,7 @@ enum print_reason {
 #define SDP_100_MA			100000
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
-#ifndef VENDOR_EDIT
-/* Yichun.Chen  PSW.BSP.CHG  2019-04-08  for charge */
-#define DCP_CURRENT_UA			1500000
-#else
-#define DCP_CURRENT_UA			3000000
-#endif
+#define DCP_CURRENT_UA			2000000
 #define HVDCP_CURRENT_UA		3000000
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
@@ -367,32 +353,42 @@ struct smb_iio {
 	struct iio_channel	*die_temp_chan;
 	struct iio_channel	*skin_temp_chan;
 	struct iio_channel	*smb_temp_chan;
-#ifdef VENDOR_EDIT
-/* Yichun.Chen  PSW.BSP.CHG  2019-04-13  for read chargerid */
 	struct iio_channel	*chgid_v_chan;
 	struct iio_channel	*usb_temp_chan1;
 	struct iio_channel	*usb_temp_chan2;
-#endif
 };
+
+#ifdef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  adc channel | usb warn code */
+enum {
+	USB_TEMPERATURE1,	/* PM7150A ADC */
+	USB_TEMPERATURE2,	/* PM7150 ADC */
+	USBIN_VOLTAGE,
+	CHARGERID_VOLTAGE,
+};
+
+enum {
+	USB_HIGH_TEMP		= BIT(0),
+};
+#endif
 
 struct smb_charger {
 #ifdef VENDOR_EDIT
 /* Yichun.Chen  PSW.BSP.CHG  2019-04-08  for charge */
+	struct mutex		pinctrl_mutex;
 	struct power_supply	*ac_psy;
-	struct delayed_work	chg_monitor_work;
+	struct delayed_work	oppochg_monitor_work;
 	struct delayed_work	typec_disable_cmd_work;
 	bool			fake_typec_insertion;
 	bool			fake_usb_insertion;
-#endif
-
-#ifdef VENDOR_EDIT
-/* Yichun.Chen  PSW.BSP.CHG  2019-04-08  for charge */
 	int			shortc_gpio;
 	int			ccdetect_gpio;
 	int			pre_current_ma;
 	bool			is_dpdm_on_usb;
 	struct delayed_work	divider_set_work;
 	struct work_struct	dpdm_set_work;
+	struct mutex		adc_lock;
+	u32			usb_status;
 #endif
 
 	struct device		*dev;
@@ -589,8 +585,6 @@ struct smb_charger {
 	int			wireless_vout;
 };
 
-#ifdef VENDOR_EDIT
-/* Yichun.Chen  PSW.BSP.CHG  2019-04-08  for charge */
 enum skip_reason {
 	REASON_OTG_ENABLED	= BIT(0),
 	REASON_FLASH_ENABLED	= BIT(1)
@@ -644,7 +638,6 @@ struct qcom_pmic {
 	bool			hc_mode_flag;
 	/* copy form msm8976_pmic end */
 };
-#endif
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
 int smblib_masked_write(struct smb_charger *chg, u16 addr, u8 mask, u8 val);
@@ -846,3 +839,4 @@ int smblib_get_irq_status(struct smb_charger *chg,
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
 #endif /* __SMB5_CHARGER_H */
+

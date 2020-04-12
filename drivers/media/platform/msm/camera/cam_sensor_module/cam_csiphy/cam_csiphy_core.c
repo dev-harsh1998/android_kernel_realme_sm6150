@@ -28,6 +28,12 @@
 #define LANE_MASK_2PH 0x1F
 #define LANE_MASK_3PH 0x7
 
+
+void __iomem *csphy0_base;
+void __iomem *csphy1_base;
+void __iomem *csphy2_base;
+void __iomem *csphy3_base;
+
 static int csiphy_dump;
 module_param(csiphy_dump, int, 0644);
 
@@ -106,6 +112,22 @@ void cam_csiphy_reset(struct csiphy_device *csiphy_dev)
 			csiphy_dev->ctrl_reg->csiphy_reset_reg[i].delay * 1000
 			+ 10);
 	}
+	switch (csiphy_dev->soc_info.index) {
+		case 0:
+			csphy0_base = NULL;
+			break;
+		case 1:
+			csphy1_base = NULL;
+			break;
+		case 2:
+			csphy2_base = NULL;
+			break;
+		case 3:
+			csphy3_base = NULL;
+			break;
+
+	}
+
 }
 
 int32_t cam_csiphy_update_secure_info(
@@ -401,6 +423,24 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 		CAM_ERR(CAM_CSIPHY, "csiphybase NULL");
 		return -EINVAL;
 	}
+
+	switch (csiphy_dev->soc_info.index) {
+		case 0:
+			csphy0_base = csiphybase;
+			break;
+		case 1:
+			csphy1_base = csiphybase;
+			break;
+		case 2:
+			csphy2_base = csiphybase;
+			break;
+		case 3:
+			csphy3_base = csiphybase;
+			break;
+
+	}
+	CAM_ERR(CAM_CSIPHY, "CSI PHY%d base %p", csiphy_dev->soc_info.index, csiphybase);
+
 
 	if (!csiphy_dev->csiphy_info.csiphy_3phase) {
 		if (csiphy_dev->csiphy_info.combo_mode == 1)

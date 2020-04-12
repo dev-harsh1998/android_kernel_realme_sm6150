@@ -1258,7 +1258,7 @@ static int cam_ife_mgr_acquire_cid_res(
 	csid_acquire.res_type = CAM_ISP_RESOURCE_CID;
 	csid_acquire.in_port = in_port;
 	csid_acquire.res_id =  path_res_id;
-	CAM_DBG(CAM_ISP, "path_res_id %d", path_res_id);
+	CAM_INFO(CAM_ISP, "path_res_id %d context %d", path_res_id, ife_ctx->ctx_index);
 
 	if (in_port->num_out_res)
 		out_port = &(in_port->data[0]);
@@ -1336,6 +1336,7 @@ static int cam_ife_mgr_acquire_cid_res(
 			CAM_ERR(CAM_ISP,
 				"Can not acquire ife cid resource for path %d",
 				path_res_id);
+			cam_ife_hw_mgr_reset_csid_res(*cid_res);
 			goto put_res;
 		}
 	} else {
@@ -1358,13 +1359,14 @@ static int cam_ife_mgr_acquire_cid_res(
 			CAM_ERR(CAM_ISP,
 				"Can not acquire ife cid resource for path %d",
 				path_res_id);
+			cam_ife_hw_mgr_reset_csid_res(*cid_res);
 			goto put_res;
 		}
 	}
 
 
 acquire_successful:
-	CAM_DBG(CAM_ISP, "CID left acquired success is_dual %d",
+	CAM_INFO(CAM_ISP, "CID left acquired success is_dual %d",
 		in_port->usage_type);
 
 	cid_res_temp->res_type = CAM_IFE_HW_MGR_RES_CID;
@@ -1387,19 +1389,27 @@ acquire_successful:
 		csid_acquire.res_type = CAM_ISP_RESOURCE_CID;
 		csid_acquire.in_port = in_port;
 		for (j = 0; j < CAM_IFE_CSID_HW_NUM_MAX; j++) {
-			if (!ife_hw_mgr->csid_devices[j])
+			if (!ife_hw_mgr->csid_devices[j]) {
+				CAM_ERR(CAM_ISP, "CSID %d node not available", j);
 				continue;
+			}
 
-			if (j == cid_res_temp->hw_res[0]->hw_intf->hw_idx)
+			if (j == cid_res_temp->hw_res[0]->hw_intf->hw_idx) {
+				CAM_ERR(CAM_ISP, "CSID %d already acquired", j);
 				continue;
+			}
 
 			hw_intf = ife_hw_mgr->csid_devices[j];
 			rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
 				&csid_acquire, sizeof(csid_acquire));
-			if (rc)
+			if (rc) {
+				CAM_ERR(CAM_ISP, "CSID %d reserve failed", j);
 				continue;
-			else
+			}
+			else {
+				CAM_ERR(CAM_ISP, "CSID %d reserve success", j);
 				break;
+			}
 		}
 
 		if (j == CAM_IFE_CSID_HW_NUM_MAX) {
@@ -1408,7 +1418,7 @@ acquire_successful:
 			goto end;
 		}
 		cid_res_temp->hw_res[1] = csid_acquire.node_res;
-		CAM_DBG(CAM_ISP, "CID right acquired success is_dual %d",
+		CAM_INFO(CAM_ISP, "CID right acquired success is_dual %d",
 			in_port->usage_type);
 	}
 	cid_res_temp->parent = &ife_ctx->res_list_ife_in;

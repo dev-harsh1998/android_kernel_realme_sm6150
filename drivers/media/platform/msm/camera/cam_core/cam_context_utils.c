@@ -459,6 +459,20 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 				"[%s][%d] : Moving req[%llu] from free_list to pending_list",
 				ctx->dev_name, ctx->ctx_id, req->request_id);
 
+#ifdef VENDOR_EDIT
+/*Added qualcomm patch, 20190808 for Aging-test dump, qualcomm case ID 04127771*/
+		for (j = 0; j < req->num_in_map_entries; j++) {
+			rc = cam_sync_check_valid(
+				req->in_map_entries[j].sync_id);
+			if (rc) {
+				CAM_ERR(CAM_CTXT,
+					"invalid in map sync object %d",
+					req->in_map_entries[j].sync_id);
+				goto put_ref;
+			}
+		}
+#endif
+
 		for (j = 0; j < req->num_in_map_entries; j++) {
 			cam_context_getref(ctx);
 			rc = cam_sync_register_callback(
@@ -480,7 +494,13 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 						ctx->dev_name, ctx->ctx_id,
 						req->request_id);
 
+#ifdef VENDOR_EDIT
+/*Added qualcomm patch, 20190808 for Aging-test dump, qualcomm case ID 04127771*/
+				cam_context_putref(ctx);
+				goto put_ref;
+#else
 				goto put_ctx_ref;
+#endif
 			}
 			CAM_DBG(CAM_CTXT, "register in fence cb: %d ret = %d",
 				req->in_map_entries[j].sync_id, rc);
@@ -492,9 +512,12 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 			ctx->dev_name, ctx->ctx_id);
 
 	return rc;
+#ifndef VENDOR_EDIT
+/*Added qualcomm patch, 20190808 for Aging-test dump, qualcomm case ID 04127771*/
 put_ctx_ref:
 	for (j; j >= 0; j--)
 		cam_context_putref(ctx);
+#endif
 put_ref:
 	for (--i; i >= 0; i--) {
 		if (cam_sync_put_obj_ref(req->out_map_entries[i].sync_id))

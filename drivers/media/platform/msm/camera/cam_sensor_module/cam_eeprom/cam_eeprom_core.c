@@ -990,6 +990,23 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 	int                            rc = 0;
 	struct cam_eeprom_query_cap_t  eeprom_cap = {0};
 	struct cam_control            *cmd = (struct cam_control *)arg;
+#ifdef VENDOR_EDIT
+//add by yufeng@camera, 20190618 for write calibration
+	int i = 0;
+	int j = 0;
+	int idx = 0;
+	int idy = 0;
+	uint32_t readcalibData;
+	uint32_t readdata;
+	struct cam_write_eeprom_t cam_write_eeprom;
+	struct cam_sensor_i2c_reg_setting  i2c_reg_settings;
+	struct cam_sensor_i2c_reg_array    i2c_reg_arrays[8];
+	struct cam_sensor_i2c_reg_array    i2c_reg_array;
+//add by yufeng@camera, 20190618 for check eeprom data
+	struct check_eeprom_data_t check_eeprom_data;
+//add by yufeng@camera, 20190618 for write AE SYNC
+	struct cam_write_AE_SYNC_t cam_write_AE_SYNC;
+#endif
 
 	if (!e_ctrl || !cmd) {
 		CAM_ERR(CAM_EEPROM, "Invalid Arguments");
@@ -1015,7 +1032,7 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 			&eeprom_cap,
 			sizeof(struct cam_eeprom_query_cap_t))) {
 			CAM_ERR(CAM_EEPROM, "Failed Copy to User");
-			return -EFAULT;
+			rc = -EFAULT;
 			goto release_mutex;
 		}
 		CAM_DBG(CAM_EEPROM, "eeprom_cap: ID: %d", eeprom_cap.slot_info);
@@ -1061,6 +1078,285 @@ int32_t cam_eeprom_driver_cmd(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 			goto release_mutex;
 		}
 		break;
+#ifdef VENDOR_EDIT
+//add by yufeng@camera, 20190115 for write eeprom
+	case CAM_WRITE_CALIBRATION_DATA:
+		memset(&cam_write_eeprom, 0, sizeof(struct cam_write_eeprom_t));
+		if (copy_from_user(&cam_write_eeprom, (void __user *) cmd->handle, sizeof(struct cam_write_eeprom_t))) {
+
+			CAM_ERR(CAM_EEPROM, "Failed Copy from User");
+			//return -EFAULT;
+			goto release_mutex;
+		}
+		CAM_DBG(CAM_EEPROM, "write_eeprom, cam: ID: %x, addr: %x, calibDataSize: %d, isWRP: %x",
+						 cam_write_eeprom.cam_id,
+						 cam_write_eeprom.baseAddr,
+						 cam_write_eeprom.calibDataSize,
+						 cam_write_eeprom.isWRP);
+		//disable write protection
+		if (cam_write_eeprom.isWRP == 0x01){
+			i2c_reg_settings.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+			i2c_reg_settings.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+			i2c_reg_settings.size = 1;
+			i2c_reg_settings.delay = WRITE_DATA_DELAY;
+			i2c_reg_array.reg_addr = cam_write_eeprom.WRPaddr;
+			i2c_reg_array.reg_data = 0x00;
+			i2c_reg_array.delay = 0;
+
+			i2c_reg_settings.reg_setting = &i2c_reg_array;
+
+			rc = camera_io_dev_read(&e_ctrl->io_master_info,
+				 i2c_reg_array.reg_addr, &readcalibData,
+				 CAMERA_SENSOR_I2C_TYPE_WORD,
+				 CAMERA_SENSOR_I2C_TYPE_BYTE);
+				 //CAM_DBG(CAM_EEPROM, "cam: WRPaddr: %x", readcalibData);
+			if (rc) {
+				CAM_ERR(CAM_EEPROM, "read WRPaddr failed rc %d",rc);
+				return rc;
+			}
+			if (readcalibData!=0x00) {
+				rc = camera_io_dev_write(&e_ctrl->io_master_info, &i2c_reg_settings);
+				if (rc) {
+					CAM_ERR(CAM_EEPROM, "write WRPaddr failed rc %d",rc);
+					return rc;
+				}
+				CAM_DBG(CAM_EEPROM, "write!cam: WRPaddr: %x", readcalibData);
+			}
+		}
+		//wait for 100ms, and then write eeprom
+		msleep(100);
+		//start
+		CAM_DBG(CAM_EEPROM, "write start, cam: ID: %x, reg_addr: %x, size: %d",
+							cam_write_eeprom.cam_id, cam_write_eeprom.baseAddr, cam_write_eeprom.calibDataSize);
+		CAM_DBG(CAM_EEPROM, "write start, cam: ID: %x, reg_addr: %x, val: %d",
+							cam_write_eeprom.cam_id, cam_write_eeprom.baseAddr, cam_write_eeprom.calibData[0]);
+		if (((cam_write_eeprom.cam_id == 0x01) || (cam_write_eeprom.cam_id==0x10) || (cam_write_eeprom.cam_id==0x11))
+				&& cam_write_eeprom.calibDataSize == CALIB_DATA_LENGTH) {
+
+			idx = cam_write_eeprom.calibDataSize / WRITE_DATA_MAX_LENGTH;
+			idy = cam_write_eeprom.calibDataSize % WRITE_DATA_MAX_LENGTH;
+			for (i = 0; i < idx; i++ ){
+				i2c_reg_settings.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+				i2c_reg_settings.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+				i2c_reg_settings.size = WRITE_DATA_MAX_LENGTH;
+				i2c_reg_settings.delay = WRITE_DATA_DELAY;
+				for (j = 0; j < WRITE_DATA_MAX_LENGTH; j++){
+					i2c_reg_arrays[j].reg_addr = cam_write_eeprom.baseAddr + i*WRITE_DATA_MAX_LENGTH+j;
+					i2c_reg_arrays[j].reg_data = cam_write_eeprom.calibData[i*WRITE_DATA_MAX_LENGTH+j];
+					i2c_reg_arrays[j].delay = 0;
+				}
+				i2c_reg_settings.reg_setting = i2c_reg_arrays;
+
+				e_ctrl->cam_eeprom_state = CAM_EEPROM_CONFIG;
+				rc = camera_io_dev_write(&e_ctrl->io_master_info, &i2c_reg_settings);
+				if (rc) {
+					CAM_ERR(CAM_EEPROM, "eeprom write failed rc %d", rc);
+					return rc;
+				}
+			}
+			i2c_reg_settings.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+			i2c_reg_settings.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+			i2c_reg_settings.size = idy;
+			i2c_reg_settings.delay = WRITE_DATA_DELAY;
+			for (j = 0; j < idy; j++){
+				i2c_reg_arrays[j].reg_addr = cam_write_eeprom.baseAddr + i*WRITE_DATA_MAX_LENGTH+j;
+				i2c_reg_arrays[j].reg_data = cam_write_eeprom.calibData[i*WRITE_DATA_MAX_LENGTH+j];
+				i2c_reg_arrays[j].delay = 0;
+			}
+			i2c_reg_settings.reg_setting = i2c_reg_arrays;
+
+			e_ctrl->cam_eeprom_state = CAM_EEPROM_CONFIG;
+			rc = camera_io_dev_write(&e_ctrl->io_master_info, &i2c_reg_settings);
+			if (rc) {
+				CAM_ERR(CAM_EEPROM, "eeprom write failed rc %d", rc);
+				return rc;
+			}
+		//end
+		}else {
+			CAM_ERR(CAM_EEPROM, "eeprom write failed ");
+		}
+		//enable write protection
+		if (cam_write_eeprom.isWRP == 0x01){
+			i2c_reg_settings.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+			i2c_reg_settings.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+			i2c_reg_settings.size = 1;
+			i2c_reg_settings.delay = WRITE_DATA_DELAY;
+			i2c_reg_array.reg_addr = cam_write_eeprom.WRPaddr;
+			i2c_reg_array.reg_data = 0x0E;
+			i2c_reg_array.delay = 0;
+			i2c_reg_settings.reg_setting = &i2c_reg_array;
+
+			rc = camera_io_dev_read(&e_ctrl->io_master_info,
+				 i2c_reg_array.reg_addr, &readcalibData,
+				 CAMERA_SENSOR_I2C_TYPE_WORD,
+				 CAMERA_SENSOR_I2C_TYPE_BYTE);
+			if (rc) {
+				CAM_ERR(CAM_EEPROM, "read WRPaddr failed rc %d",rc);
+				return rc;
+			}
+			if(readcalibData!=0x0E){
+				rc = camera_io_dev_write(&e_ctrl->io_master_info, &i2c_reg_settings);
+				if (rc) {
+					CAM_ERR(CAM_EEPROM, "write WRPaddr failed rc %d",rc);
+					return rc;
+				}
+				CAM_ERR(CAM_EEPROM, "write!cam: WRPaddr: %x", readcalibData);
+			}
+		}
+		break;
+	//add by yufeng@camera, 20190216 for check eeprom data
+	case CAM_CHECK_CALIBRATION_DATA:
+		memset(&check_eeprom_data, 0, sizeof(struct check_eeprom_data_t));
+		if (copy_from_user(&check_eeprom_data, (void __user *) cmd->handle, sizeof(struct check_eeprom_data_t))) {
+
+			CAM_ERR(CAM_EEPROM, "Failed Copy from User");
+			//return -EFAULT;
+			goto release_mutex;
+		}
+		if (check_eeprom_data.cam_id == 0x01 || check_eeprom_data.cam_id == 0x10  || check_eeprom_data.cam_id == 0x11) {
+			check_eeprom_data.eepromData_checksum = 0;
+			for (i = 0; i < EEPROM_CHECK_DATA_MAX_SIZE; i++ ){
+				rc = camera_io_dev_read(&e_ctrl->io_master_info,
+					(check_eeprom_data.startAddr + i*8), &readdata,
+					CAMERA_SENSOR_I2C_TYPE_WORD,
+					CAMERA_SENSOR_I2C_TYPE_BYTE);
+				if (rc) {
+					CAM_ERR(CAM_EEPROM, "eeprom read failed rc %d",rc);
+					return rc;
+				}
+				check_eeprom_data.eepromData_checksum += readdata;
+			}
+			CAM_DBG(CAM_EEPROM, "eepromData_checksum: %d", check_eeprom_data.eepromData_checksum);
+			if (copy_to_user((void __user *) cmd->handle, &check_eeprom_data, sizeof(struct check_eeprom_data_t))) {
+
+				CAM_ERR(CAM_EEPROM, "Failed Copy to User");
+				//return -EFAULT;
+				goto release_mutex;
+			}
+		}
+		break;
+//add by yufeng@camera, 20190618 for write AE SYNC
+	case CAM_WRITE_AE_SYNC_DATA:
+		memset(&cam_write_AE_SYNC, 0, sizeof(struct cam_write_AE_SYNC_t));
+		if (copy_from_user(&cam_write_AE_SYNC, (void __user *) cmd->handle, sizeof(struct cam_write_AE_SYNC_t))) {
+
+			CAM_ERR(CAM_EEPROM, "Failed Copy from User");
+			//return -EFAULT;
+			goto release_mutex;
+		}
+		CAM_DBG(CAM_EEPROM, "write AE sync, cam: ID: %x, addr: %x, AE sync data Size: %d",
+								 cam_write_AE_SYNC.cam_id,
+								 cam_write_AE_SYNC.baseAddr,
+								 cam_write_AE_SYNC.AESyncSize);
+		//disable write protection
+		if (cam_write_AE_SYNC.isWRP == 0x01){
+			i2c_reg_settings.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+			i2c_reg_settings.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+			i2c_reg_settings.size = 1;
+			i2c_reg_settings.delay = WRITE_DATA_DELAY;
+			i2c_reg_array.reg_addr = cam_write_AE_SYNC.WRPaddr;
+			i2c_reg_array.reg_data = 0x00;
+			i2c_reg_array.delay = 0;
+
+			i2c_reg_settings.reg_setting = &i2c_reg_array;
+
+			rc = camera_io_dev_read(&e_ctrl->io_master_info,
+				 i2c_reg_array.reg_addr, &readcalibData,
+				 CAMERA_SENSOR_I2C_TYPE_WORD,
+				 CAMERA_SENSOR_I2C_TYPE_BYTE);
+			if (rc) {
+				CAM_ERR(CAM_EEPROM, "read WRPaddr failed rc %d",rc);
+				return rc;
+			}
+			if (readcalibData!=0x00) {
+				rc = camera_io_dev_write(&e_ctrl->io_master_info, &i2c_reg_settings);
+				if (rc) {
+					CAM_ERR(CAM_EEPROM, "write WRPaddr failed rc %d",rc);
+					return rc;
+				}
+				CAM_DBG(CAM_EEPROM, "write!cam: WRPaddr: %x", readcalibData);
+			}
+		}
+		//wait for 100ms, and then write eeprom
+		msleep(20);
+		//start
+		CAM_DBG(CAM_EEPROM, "write AE sync start, cam: ID: %x, reg_addr: %x, size: %x",
+							cam_write_AE_SYNC.cam_id, cam_write_AE_SYNC.baseAddr, cam_write_AE_SYNC.AESyncSize);
+		if (((cam_write_AE_SYNC.cam_id == 0x01) || (cam_write_AE_SYNC.cam_id == 0x10) || (cam_write_AE_SYNC.cam_id == 0x11))
+				&& cam_write_AE_SYNC.AESyncSize == AE_SYNC_SIZE) {
+
+			idx = cam_write_AE_SYNC.AESyncSize / WRITE_DATA_MAX_LENGTH;
+			idy = cam_write_AE_SYNC.AESyncSize % WRITE_DATA_MAX_LENGTH;
+			for (i = 0; i < idx; i++ ){
+				i2c_reg_settings.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+				i2c_reg_settings.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+				i2c_reg_settings.size = WRITE_DATA_MAX_LENGTH;
+				i2c_reg_settings.delay = WRITE_DATA_DELAY;
+				for (j = 0; j < WRITE_DATA_MAX_LENGTH; j++){
+					i2c_reg_arrays[j].reg_addr = cam_write_AE_SYNC.baseAddr + i*WRITE_DATA_MAX_LENGTH+j;
+					i2c_reg_arrays[j].reg_data = cam_write_AE_SYNC.AESync[i*WRITE_DATA_MAX_LENGTH+j];
+					i2c_reg_arrays[j].delay = 0;
+				}
+				i2c_reg_settings.reg_setting = i2c_reg_arrays;
+
+				e_ctrl->cam_eeprom_state = CAM_EEPROM_CONFIG;
+				rc = camera_io_dev_write(&e_ctrl->io_master_info, &i2c_reg_settings);
+				if (rc) {
+					CAM_ERR(CAM_EEPROM, "eeprom write failed rc %d", rc);
+					return rc;
+				}
+			}
+			i2c_reg_settings.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+			i2c_reg_settings.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+			i2c_reg_settings.size = idy;
+			i2c_reg_settings.delay = WRITE_DATA_DELAY;
+			for (j = 0; j < idy; j++){
+				i2c_reg_arrays[j].reg_addr = cam_write_AE_SYNC.baseAddr + i*WRITE_DATA_MAX_LENGTH+j;
+				i2c_reg_arrays[j].reg_data = cam_write_AE_SYNC.AESync[i*WRITE_DATA_MAX_LENGTH+j];
+				i2c_reg_arrays[j].delay = 0;
+			}
+			i2c_reg_settings.reg_setting = i2c_reg_arrays;
+
+			e_ctrl->cam_eeprom_state = CAM_EEPROM_CONFIG;
+			rc = camera_io_dev_write(&e_ctrl->io_master_info, &i2c_reg_settings);
+			if (rc) {
+				CAM_ERR(CAM_EEPROM, "eeprom write failed rc %d", rc);
+				return rc;
+			}
+		}else {
+			CAM_ERR(CAM_EEPROM, "AE sync write failed ");
+		}
+		//end
+		//enable write protection
+		if (cam_write_AE_SYNC.isWRP == 0x01){
+			i2c_reg_settings.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+			i2c_reg_settings.data_type = CAMERA_SENSOR_I2C_TYPE_BYTE;
+			i2c_reg_settings.size = 1;
+			i2c_reg_settings.delay = WRITE_DATA_DELAY;
+			i2c_reg_array.reg_addr = cam_write_AE_SYNC.WRPaddr;
+			i2c_reg_array.reg_data = 0x0E;
+			i2c_reg_array.delay = 0;
+			i2c_reg_settings.reg_setting = &i2c_reg_array;
+
+			rc = camera_io_dev_read(&e_ctrl->io_master_info,
+				 i2c_reg_array.reg_addr, &readcalibData,
+				 CAMERA_SENSOR_I2C_TYPE_WORD,
+				 CAMERA_SENSOR_I2C_TYPE_BYTE);
+			if (rc) {
+				CAM_ERR(CAM_EEPROM, "read WRPaddr failed rc %d",rc);
+				return rc;
+			}
+			if(readcalibData!=0x0E){
+				rc = camera_io_dev_write(&e_ctrl->io_master_info, &i2c_reg_settings);
+				if (rc) {
+					CAM_ERR(CAM_EEPROM, "write WRPaddr failed rc %d",rc);
+					return rc;
+				}
+				CAM_DBG(CAM_EEPROM, "write!cam: WRPaddr: %x", readcalibData);
+			}
+		}
+		break;
+#endif
 	default:
 		CAM_DBG(CAM_EEPROM, "invalid opcode");
 		break;

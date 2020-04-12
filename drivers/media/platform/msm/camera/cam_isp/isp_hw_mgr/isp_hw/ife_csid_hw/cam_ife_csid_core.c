@@ -22,6 +22,12 @@
 #include "cam_debug_util.h"
 #include "cam_cpas_api.h"
 
+extern void __iomem *csphy0_base;
+extern void __iomem *csphy1_base;
+extern void __iomem *csphy2_base;
+extern void __iomem *csphy3_base;
+
+
 /* Timeout value in msec */
 #define IFE_CSID_TIMEOUT                               1000
 
@@ -47,6 +53,8 @@
 
 /* Max CSI Rx irq error count threshold value */
 #define CAM_IFE_CSID_MAX_IRQ_ERROR_COUNT               5
+#define MIPI_CSIPHY_INTERRUPT_STATUS0_ADDR             0x8B0
+#define MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR              0x858
 
 static int cam_ife_csid_is_ipp_ppp_format_supported(
 	uint32_t in_format)
@@ -318,9 +326,11 @@ static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
 			if (cid_data->vc == vc && cid_data->dt == dt) {
 				cid_data->cnt++;
 				*res = &csid_hw->cid_res[i];
-				CAM_DBG(CAM_ISP, "CSID:%d CID %d allocated",
+				CAM_INFO(CAM_ISP, "CSID:%d CID %d allocated, csid_ref_cnt %d state %d",
 					csid_hw->hw_intf->hw_idx,
-					csid_hw->cid_res[i].res_id);
+					csid_hw->cid_res[i].res_id,
+					cid_data->cnt,
+					csid_hw->cid_res[i].res_state);
 				return 0;
 			}
 		}
@@ -337,9 +347,11 @@ static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
 			csid_hw->cid_res[i].res_state =
 				CAM_ISP_RESOURCE_STATE_RESERVED;
 			*res = &csid_hw->cid_res[i];
-			CAM_DBG(CAM_ISP, "CSID:%d CID %d allocated",
+			CAM_INFO(CAM_ISP, "CSID:%d CID %d allocated, csid_ref_cnt %d state %d",
 				csid_hw->hw_intf->hw_idx,
-				csid_hw->cid_res[i].res_id);
+				csid_hw->cid_res[i].res_id,
+				cid_data->cnt,
+				csid_hw->cid_res[i].res_state);
 			return 0;
 		}
 	}
@@ -595,7 +607,7 @@ end:
 static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 	struct cam_csid_hw_reserve_resource_args  *cid_reserv)
 {
-	int rc = 0;
+	int rc = 0, i = 0;
 	struct cam_ife_csid_cid_data       *cid_data;
 	uint32_t camera_hw_version;
 
@@ -697,11 +709,25 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 	default:
 		break;
 	}
-	CAM_DBG(CAM_ISP, "Reserve_cnt %u", csid_hw->csi2_reserve_cnt);
+	CAM_INFO(CAM_ISP, "csi2_cfg_cnt %u", csid_hw->csi2_cfg_cnt);
 
 	if (csid_hw->csi2_reserve_cnt) {
 		/* current configure res type should match requested res type */
 		if (csid_hw->res_type != cid_reserv->in_port->res_type) {
+			CAM_INFO(CAM_ISP, " Curres_type %x, Requested = %x",
+				 csid_hw->res_type ,
+				 cid_reserv->in_port->res_type);
+			for (i = 0; i < CAM_IFE_CSID_CID_RES_MAX; i++) {
+				cid_data = (struct cam_ife_csid_cid_data *)
+					csid_hw->cid_res[i].res_priv;
+
+				if (cid_data)
+					CAM_INFO(CAM_ISP, "res_state %u vc %u dt %u cnt% u tpg_set %u",
+						 csid_hw->cid_res[i].res_state, cid_data->vc, cid_data->dt, cid_data->cnt,
+						 cid_data->tpg_set);
+				else
+					CAM_INFO(CAM_ISP, "cid_data is NULL");
+			}
 			rc = -EINVAL;
 			goto end;
 		}
@@ -713,6 +739,7 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 				cid_reserv->in_port->lane_type ||
 				csid_hw->csi2_rx_cfg.lane_num !=
 				cid_reserv->in_port->lane_num) {
+				CAM_INFO(CAM_ISP, "%d != CAM_ISP_IFE_IN_RES_TPG", cid_reserv->in_port->res_type);
 				rc = -EINVAL;
 				goto end;
 				}
@@ -725,6 +752,7 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 				cid_reserv->in_port->height     ||
 				csid_hw->tpg_cfg.test_pattern !=
 				cid_reserv->in_port->test_pattern) {
+				CAM_INFO(CAM_ISP, "%d == CAM_ISP_IFE_IN_RES_TPG", cid_reserv->in_port->res_type);
 				rc = -EINVAL;
 				goto end;
 			}
@@ -735,9 +763,20 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 	case CAM_IFE_PIX_PATH_RES_IPP:
 		if (csid_hw->ipp_res.res_state !=
 			CAM_ISP_RESOURCE_STATE_AVAILABLE) {
-			CAM_DBG(CAM_ISP,
-				"CSID:%d IPP resource not available",
-				csid_hw->hw_intf->hw_idx);
+			CAM_INFO(CAM_ISP,
+				"CSID:%d IPP resource not available, state %d",
+				csid_hw->hw_intf->hw_idx, csid_hw->ipp_res.res_state);
+			for (i = 0; i < CAM_IFE_CSID_CID_RES_MAX; i++) {
+				cid_data = (struct cam_ife_csid_cid_data *)
+					csid_hw->cid_res[i].res_priv;
+
+				if (cid_data)
+					CAM_INFO(CAM_ISP, "res_state %u, vc %u dt %u cnt% u tpg_set %u",
+						csid_hw->cid_res[i].res_state, cid_data->vc, cid_data->dt, cid_data->cnt,
+						cid_data->tpg_set);
+				else
+					CAM_INFO(CAM_ISP, "cid_data is NULL");
+			}
 			rc = -EINVAL;
 			goto end;
 		}
@@ -833,9 +872,9 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 	}
 
 	csid_hw->csi2_reserve_cnt++;
-	CAM_DBG(CAM_ISP, "CSID:%d CID:%d acquired",
+	CAM_INFO(CAM_ISP, "CSID:%d CID:%d csi2_reserve_cnt:%d acquired",
 		csid_hw->hw_intf->hw_idx,
-		cid_reserv->node_res->res_id);
+		cid_reserv->node_res->res_id, csid_hw->csi2_reserve_cnt);
 
 end:
 	return rc;
@@ -1562,6 +1601,9 @@ static void cam_ife_csid_halt_csi2(
 {
 	const struct cam_ife_csid_reg_offset      *csid_reg;
 	struct cam_hw_soc_info                    *soc_info;
+	int i = 0;
+	void __iomem *phy_base = NULL;
+	uint32_t irq = 0;
 
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -1575,6 +1617,47 @@ static void cam_ife_csid_halt_csi2(
 		csid_reg->csi2_reg->csid_csi2_rx_cfg0_addr);
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_cfg1_addr);
+
+	// Dump logic for CSI PHY status
+	switch (csid_hw->csi2_rx_cfg.phy_sel) {
+		case 0:
+			phy_base = csphy0_base;
+			break;
+		case 1:
+			phy_base = csphy1_base;
+			break;
+		case 2:
+			phy_base = csphy2_base;
+			break;
+		case 3:
+			phy_base = csphy3_base;
+			break;
+
+	}
+
+	CAM_ERR(CAM_CSIPHY,
+			"CSID: %d CSIPHY: %d PHYbase: %p ",
+			csid_hw->hw_intf->hw_idx,
+			csid_hw->csi2_rx_cfg.phy_sel,
+			phy_base);
+
+	if (phy_base) {
+		for (i = 0; i < 11; i++) {
+			irq = cam_io_r(phy_base +
+					MIPI_CSIPHY_INTERRUPT_STATUS0_ADDR +
+					(0x4 * i));
+			cam_io_w_mb(irq, phy_base +
+					MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR +
+					(0x4 * i));
+			CAM_ERR(CAM_CSIPHY,
+					"CSIPHY%d_IRQ_STATUS_ADDR%d = 0x%x",
+					csid_hw->csi2_rx_cfg.phy_sel, i, irq);
+			cam_io_w_mb(0x0, phy_base +
+					MIPI_CSIPHY_INTERRUPT_CLEAR0_ADDR +
+					(0x4 * i));
+		}
+		csid_hw->error_irq_count = 0;
+	}
 }
 
 static int cam_ife_csid_init_config_pxl_path(
@@ -2576,8 +2659,8 @@ static int cam_ife_csid_reserve(void *hw_priv,
 	csid_hw = (struct cam_ife_csid_hw   *)csid_hw_info->core_info;
 	reserv = (struct cam_csid_hw_reserve_resource_args  *)reserve_args;
 
-	CAM_DBG(CAM_ISP, "res_type %d, CSID: %u",
-		reserv->res_type, csid_hw->hw_intf->hw_idx);
+	CAM_INFO(CAM_ISP, "res_type %d, res id:%d CSID: %u",
+		reserv->res_type, reserv->res_id, csid_hw->hw_intf->hw_idx);
 
 	mutex_lock(&csid_hw->hw_info->hw_mutex);
 	switch (reserv->res_type) {
@@ -2635,10 +2718,15 @@ static int cam_ife_csid_release(void *hw_priv,
 			csid_hw->hw_intf->hw_idx,
 			res->res_type, res->res_id,
 			res->res_state);
-		goto end;
+		if (res->res_type != CAM_ISP_RESOURCE_CID) {
+			goto end;
+		} else {
+			cid_data = (struct cam_ife_csid_cid_data    *) res->res_priv;
+			CAM_WARN(CAM_ISP, "cid data cnt %d", cid_data->cnt);
+		}
 	}
 
-	CAM_DBG(CAM_ISP, "CSID:%d res type :%d Resource id:%d",
+	CAM_INFO(CAM_ISP, "CSID:%d res type :%d Resource id:%d",
 		csid_hw->hw_intf->hw_idx, res->res_type, res->res_id);
 
 	switch (res->res_type) {
@@ -2657,17 +2745,18 @@ static int cam_ife_csid_release(void *hw_priv,
 			memset(&csid_hw->csi2_rx_cfg, 0,
 				sizeof(struct cam_ife_csid_csi2_rx_cfg));
 
-		CAM_DBG(CAM_ISP, "CSID:%d res id :%d cnt:%d reserv cnt:%d",
+		CAM_INFO(CAM_ISP, "CSID:%d res id :%d cnt:%d reserv cnt:%d state %d",
 			 csid_hw->hw_intf->hw_idx,
-			res->res_id, cid_data->cnt, csid_hw->csi2_reserve_cnt);
+			res->res_id, cid_data->cnt, csid_hw->csi2_reserve_cnt, res->res_state);
 
 		break;
 	case CAM_ISP_RESOURCE_PIX_PATH:
 		res->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
 		cam_ife_csid_reset_init_frame_drop(csid_hw);
+		CAM_INFO(CAM_ISP, "state %d", res->res_state);
 		break;
 	default:
-		CAM_ERR(CAM_ISP, "CSID:%d Invalid res type:%d res id%d",
+		CAM_ERR(CAM_ISP, "CSID:%d Invalid res type:%d res id %d",
 			csid_hw->hw_intf->hw_idx, res->res_type,
 			res->res_id);
 		rc = -EINVAL;

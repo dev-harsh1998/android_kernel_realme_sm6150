@@ -243,7 +243,10 @@ struct cam_req_mgr_req_queue {
 	struct cam_req_mgr_slot     slot[MAX_REQ_SLOTS];
 	int32_t                     rd_idx;
 	int32_t                     wr_idx;
+#ifndef VENDOR_EDIT
+/* chengming@Camera.drv, 20190827, GSI testReprocessAbort */
 	int32_t                     last_applied_idx;
+#endif
 };
 
 /**

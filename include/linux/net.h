@@ -119,6 +119,12 @@ struct socket {
 	struct file		*file;
 	struct sock		*sk;
 	const struct proto_ops	*ops;
+
+#ifdef OPPO_CTA_FLAG
+    //Wei.Liu@TECH.CTAIFS, 2019/7/27, added for CTA test
+    u64 last_send_stat_time;
+    u64 last_rcv_stat_time;
+#endif
 };
 
 struct vm_area_struct;

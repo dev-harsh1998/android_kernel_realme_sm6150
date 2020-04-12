@@ -229,6 +229,7 @@ void __wake_up_sync(struct wait_queue_head *wq_head, unsigned int mode, int nr);
 
 extern void init_wait_entry(struct wait_queue_entry *wq_entry, int flags);
 
+
 /*
  * The below macro ___wait_event() has an explicit shadow of the __ret
  * variable when used from the wait_event_*() macros.
@@ -241,6 +242,7 @@ extern void init_wait_entry(struct wait_queue_entry *wq_entry, int flags);
  * otherwise.
  */
 
+//#ifdef VENDOR_EDIT //fangpan@Swdp.shanghai,2015/11/12
 #define ___wait_event(wq_head, condition, state, exclusive, ret, cmd)		\
 ({										\
 	__label__ __out;							\
@@ -258,12 +260,12 @@ extern void init_wait_entry(struct wait_queue_entry *wq_entry, int flags);
 			__ret = __int;						\
 			goto __out;						\
 		}								\
-										\
 		cmd;								\
 	}									\
 	finish_wait(&wq_head, &__wq_entry);					\
 __out:	__ret;									\
 })
+//#endif
 
 #define __wait_event(wq_head, condition)					\
 	(void)___wait_event(wq_head, condition, TASK_UNINTERRUPTIBLE, 0, 0,	\

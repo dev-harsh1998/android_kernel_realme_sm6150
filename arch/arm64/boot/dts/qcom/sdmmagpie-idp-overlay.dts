@@ -26,6 +26,16 @@
 	qcom,board-id = <34 0>;
 };
 
-&dsi_sw43404_amoled_video_display {
+//#ifndef VENDOR_EDIT
+/*
+ * YongPeng.Yi@PSW.MM.Display.LCD.Stability, 2019/04/16,
+ * modify for 19031 lcd bringup
+ */
+//&dsi_sw43404_amoled_video_display {
+	//qcom,dsi-display-active;
+//};
+//#else /*VENDOR_EDIT*/
+&dsi_oppo18097samsung_ams641rw01_1080_2340_cmd_display {
 	qcom,dsi-display-active;
 };
+//#endif /*VENDOR_EDIT*/

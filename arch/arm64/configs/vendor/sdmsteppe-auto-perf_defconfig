@@ -691,3 +691,17 @@ CONFIG_CRYPTO_AES_ARM64_CE_CCM=y
 CONFIG_CRYPTO_AES_ARM64_CE_BLK=y
 CONFIG_CRYPTO_AES_ARM64_NEON_BLK=y
 CONFIG_STACK_HASH_ORDER_SHIFT=12
+
+#ifdef VENDOR_EDIT
+#Hanxing.Duan@ODM.RH.BSP.Kernel.Driver 2019/07/29 add sprinlock debug
+CONFIG_DEBUG_SPINLOCK=y
+#endif VENDOR_EDIT
+
+# ifdef VENDOR_EDIT
+# YiXue.Ge@PSW.BSP.Kernel.Driver,2017/07/03, Add for enable lz4 compress for zram
+CONFIG_CRYPTO_LZ4=y
+# endif
+# ifdef VENDOR_EDIT
+# YiXue.Ge@PSW.BSP.Kernel.Driver,2017/07/03, Add for enable PGTABLE_MAPPING
+CONFIG_PGTABLE_MAPPING=y
+# endif

@@ -25,6 +25,10 @@
 #include "dsi-panel-rm69298-truly-amoled-fhd-plus-cmd.dtsi"
 #include "dsi-panel-nt35695b-truly-fhd-video.dtsi"
 #include "dsi-panel-nt35695b-truly-fhd-cmd.dtsi"
+//#ifdef VENDOR_EDIT
+/* YongPeng.Yi@PSW.MM.Display.LCD.Stability, 2019/04/16, add for 19031 lcd bringup */
+#include "dsi-panel_oppo18097samsung_ams641rw01_1080_2340.dtsi"
+//#endif /*VENDOR_EDIT*/
 #include <dt-bindings/clock/mdss-10nm-pll-clk.h>
 
 &soc {
@@ -287,6 +291,20 @@
 		qcom,dsi-panel = <&dsi_nt35695b_truly_fhd_cmd>;
 	};
 
+//#ifdef VENDOR_EDIT
+/* YongPeng.Yi@PSW.MM.Display.LCD.Stability, 2019/03/28, add for 19031 lcd birng up */
+	dsi_oppo18097samsung_ams641rw01_1080_2340_cmd_display: qcom,dsi-display@17 {
+		label = "dsi_oppo18097samsung_ams641rw01_1080_2340_cmd_display";
+		qcom,display-type = "primary";
+
+		qcom,dsi-ctrl-num = <0>;
+		qcom,dsi-phy-num = <0>;
+		qcom,dsi-select-clocks = "mux_byte_clk0", "mux_pixel_clk0";
+
+		qcom,dsi-panel = <&dsi_oppo18097samsung_ams641rw01_1080_2340_cmd>;
+	};
+//#endif /*VENDOR_EDIT*/
+
 	sde_dsi: qcom,dsi-display {
 		compatible = "qcom,dsi-display";
 
@@ -314,7 +332,15 @@
 		qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
 		qcom,panel-te-source = <0>;
 
-		vddio-supply = <&pm6150_l13>;
+//#ifndef VENDOR_EDIT
+/*
+ * YongPeng.Yi@PSW.MM.Display.LCD.Stability, 2019/03/28,
+ * modify for 19031 lcd bring up
+ */
+		//vddio-supply = <&pm6150_l13>;
+//#else /*VENDOR_EDIT*/
+		vddio-supply = <&pm6150_l12>;
+//#endif /*VENDOR_EDIT*/
 		vdda-3p3-supply = <&pm6150_l18>;
 		lab-supply = <&lcdb_ldo_vreg>;
 		ibb-supply = <&lcdb_ncp_vreg>;
@@ -334,8 +360,11 @@
 			&dsi_rm69298_truly_amoled_vid_display
 			&dsi_rm69298_truly_amoled_cmd_display
 			&dsi_nt35695b_truly_fhd_video_display
-			&dsi_nt35695b_truly_fhd_cmd_display>;
-
+			&dsi_nt35695b_truly_fhd_cmd_display
+//#ifdef VENDOR_EDIT
+/* YongPeng.Yi@PSW.MM.Display.LCD.Stability, 2019/03/28, add for 19031 lcd bringup */
+			&dsi_oppo18097samsung_ams641rw01_1080_2340_cmd_display>;
+//#endif /*VENDOR_EDIT*/
 	};
 
 	sde_dsi1: qcom,dsi-display-secondary {
@@ -367,6 +396,11 @@
 		qcom,dsi-display-list =
 			<&dsi_nt35695b_truly_fhd_video_sec_display
 			&dsi_nt35695b_truly_fhd_cmd_sec_display>;
+
+//#ifdef VENDOR_EDIT
+/* YongPeng.Yi@PSW.MM.Display.LCD.Stability, 2019/04/16, add for 19031 lcd bringup */
+		status = "disable";
+//#endif /*VENDOR_EDIT*/
 	};
 
 	sde_wb: qcom,wb-display@0 {
@@ -381,7 +415,15 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &sde_wb &sde_dsi &sde_dp &sde_dsi1>;
+//#ifndef VENDOR_EDIT
+/*
+ * YongPeng.Yi@PSW.MM.Display.LCD.Stability, 2019/04/16,
+ * modify for 19031 lcd bringup
+ */
+		//connectors = <&sde_rscc &sde_wb &sde_dsi &sde_dp &sde_dsi1>;
+//#else /*VENDOR_EDIT*/
+		connectors = <&sde_rscc &sde_wb &sde_dsi &sde_dp>;
+//#endif /*VENDOR_EDIT*/
 };
 
 &dsi_sw43404_amoled_video {
@@ -409,6 +451,26 @@
 		};
 	};
 };
+
+
+//#ifdef VENDOR_EDIT
+/* YongPeng.Yi@PSW.MM.Display.LCD.Stability, 2019/04/16, add for 19031 lcd bringup */
+&dsi_oppo18097samsung_ams641rw01_1080_2340_cmd {
+	qcom,ulps-enabled;
+	qcom,mdss-dsi-t-clk-post = <0x0E>;
+	qcom,mdss-dsi-t-clk-pre = <0x35>;
+	qcom,mdss-dsi-display-timings {
+		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 22 05 09 25 23 09 09 06 03 04 00];
+			//[00 13 05 04 1F 1E 05	05 03 02 04 00];
+
+			qcom,mdss-mdp-transfer-time-us = <13000>;
+			qcom,display-topology = <1 0 1>;
+			qcom,default-topology-index = <0>;
+		};
+	};
+};
+//#endif /*VENDOR_EDIT*/
 
 &dsi_sw43404_amoled_cmd {
 	qcom,ulps-enabled;

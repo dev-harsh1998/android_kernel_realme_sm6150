@@ -3,6 +3,10 @@
 # Makefile for the Linux proc filesystem routines.
 #
 
+#ifdef VENDOR_EDIT
+#/* Wen.Luo@BSP.Kernel.Stability, 2019/04/26, Add for ksgl memory statistics */
+ccflags-$(CONFIG_ARCH_QCOM) += -I$(srctree)/drivers/gpu/msm/
+#endif
 obj-y   += proc.o
 
 CFLAGS_task_mmu.o	+= $(call cc-option,-Wno-override-init,)

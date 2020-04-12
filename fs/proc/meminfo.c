@@ -20,6 +20,17 @@
 #include <asm/pgtable.h>
 #include "internal.h"
 
+
+
+
+
+
+
+
+
+
+
+
 void __attribute__((weak)) arch_report_meminfo(struct seq_file *m)
 {
 }
@@ -154,6 +165,19 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 	show_val_kb(m, "CmaFree:        ",
 		    global_zone_page_state(NR_FREE_CMA_PAGES));
 #endif
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 	hugetlb_report_meminfo(m);
 

@@ -27,7 +27,37 @@
 
 #include "qrtr.h"
 
+#ifdef VENDOR_EDIT
+//Huaqiu.Lin@PSW.CN.GPS.Power.QMI.1919976, 2019/06/01,
+//Adding for Qualcomm's patch 2432846: Add pm_wakup_event() to abort the suspend when a packet is received
+#include <linux/proc_fs.h>
+#include <linux/fcntl.h>
+//yangmingjin@BSP.POWER.Basic 2019/07/10 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+#include"qrtr_svc_lookup.h"
+#endif//VENDOR_EDIT
+#define GPSWAKEUP 1
+#define GPS_QRTR_SERVICE_ID 0x10
+#define INVALID_PORT 0xff
+#endif /* VENDOR_EDIT */
+
 #define QRTR_LOG_PAGE_CNT 4
+
+//yangmingjin@BSP.POWER.Basic 2019/05/30 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+static int ipc_router_debug_mask = 0;
+
+void set_ipc_router_debug_mask(int debug_mask){
+	ipc_router_debug_mask = !!debug_mask;
+};
+
+#define RM_POWER_QRTR(ctx, x, ...) do { \
+if (ipc_router_debug_mask) \
+	printk(KERN_INFO"[RM_POWER_QRTR] "x, ##__VA_ARGS__); \
+} while (0)
+#endif
+/*VENDOR_EDIT*/
+
 #define QRTR_INFO(ctx, x, ...)				\
 	ipc_log_string(ctx, x, ##__VA_ARGS__)
 
@@ -198,12 +228,26 @@ static int qrtr_local_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 static int qrtr_bcast_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 			      int type, struct sockaddr_qrtr *from,
 			      struct sockaddr_qrtr *to, unsigned int flags);
-
+//yangmingjin@BSP.POWER.Basic 2019/05/30 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+static inline void decode_header(unsigned char* buf, uint8_t *cntl_flag, uint16_t *txn_id, uint16_t *msg_id, uint16_t *msg_len)
+{
+	memcpy(cntl_flag, buf, 1);
+	memcpy(txn_id, buf+1, 2);
+	memcpy(msg_id, buf+3, 2);
+	memcpy(msg_len, buf+5, 2);
+}
+#endif/*VENDOR_EDIT*/
 static void qrtr_log_tx_msg(struct qrtr_node *node, struct qrtr_hdr_v1 *hdr,
 			    struct sk_buff *skb)
 {
 	const struct qrtr_ctrl_pkt *pkt;
 	u64 pl_buf = 0;
+//yangmingjin@BSP.POWER.Basic 2019/05/30 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+	uint8_t cntl_flag;
+	uint16_t txn_id, msg_id, msg_len;
+#endif/*VENDOR_EDIT*/
 
 	if (!hdr || !skb || !skb->data)
 		return;
@@ -217,6 +261,18 @@ static void qrtr_log_tx_msg(struct qrtr_node *node, struct qrtr_hdr_v1 *hdr,
 			  hdr->dst_node_id, hdr->dst_port_id,
 			  (unsigned int)pl_buf, (unsigned int)(pl_buf >> 32),
 			  current->comm);
+//yangmingjin@BSP.POWER.Basic 2019/05/30 modify for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+		decode_header((char*)(skb->data + QRTR_HDR_MAX_SIZE), &cntl_flag, &txn_id, &msg_id, &msg_len);
+		RM_POWER_QRTR(node->ilc,
+			  "TX DATA: Len:0x%x CF:0x%x src[0x%x:0x%x] dst[0x%x:0x%x] [%08x %08x]:[%02x:%04x:%04x:%04x] [%s]\n",
+			  hdr->size, hdr->confirm_rx,
+			  hdr->src_node_id, hdr->src_port_id,
+			  hdr->dst_node_id, hdr->dst_port_id,
+			  (unsigned int)pl_buf, (unsigned int)(pl_buf >> 32),
+			  cntl_flag, txn_id, msg_id, msg_len,
+			  current->comm);
+#endif/*VENDOR_EDIT*/
 	} else {
 		pkt = (struct qrtr_ctrl_pkt *)(skb->data + QRTR_HDR_MAX_SIZE);
 		if (hdr->type == QRTR_TYPE_NEW_SERVER ||
@@ -250,6 +306,12 @@ static void qrtr_log_rx_msg(struct qrtr_node *node, struct sk_buff *skb)
 	const struct qrtr_ctrl_pkt *pkt;
 	struct qrtr_cb *cb;
 	u64 pl_buf = 0;
+//yangmingjin@BSP.POWER.Basic 2019/05/30 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+	uint8_t cntl_flag;
+	uint16_t txn_id, msg_id, msg_len;
+	struct qrtr_svc * svc_info = NULL;
+#endif/*VENDOR_EDIT*/
 
 	if (!skb || !skb->data)
 		return;
@@ -263,16 +325,39 @@ static void qrtr_log_rx_msg(struct qrtr_node *node, struct sk_buff *skb)
 			  skb->len, cb->confirm_rx, cb->src_node, cb->src_port,
 			  cb->dst_node, cb->dst_port,
 			  (unsigned int)pl_buf, (unsigned int)(pl_buf >> 32));
+//yangmingjin@BSP.POWER.Basic 2019/05/30 modify for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT 
+		decode_header((char*)(skb->data), &cntl_flag, &txn_id, &msg_id, &msg_len);
+		if(ipc_router_debug_mask)
+			svc_info = NULL;//qrtr_get_svc_id(cb->src_node, cb->src_port);
+		if(svc_info == NULL){
+			svc_info = qrtr_get_svc_default();
+		}
+		RM_POWER_QRTR(node->ilc,
+			  "RX DATA: Len:0x%x CF:0x%x src[0x%x:0x%x->0x%x] dst[0x%x:0x%x] [%08x %08x]:[%02x:%04x:%04x:%04x]\n",
+			  skb->len, cb->confirm_rx, cb->src_node, cb->src_port, svc_info->service,
+			  cb->dst_node, cb->dst_port,
+			  (unsigned int)pl_buf, (unsigned int)(pl_buf >> 32),
+			  cntl_flag, txn_id, msg_id, msg_len);
+#endif/*VENDOR_EDIT*/
 	} else {
 		pkt = (struct qrtr_ctrl_pkt *)(skb->data);
 		if (cb->type == QRTR_TYPE_NEW_SERVER ||
-		    cb->type == QRTR_TYPE_DEL_SERVER)
+		    cb->type == QRTR_TYPE_DEL_SERVER){
 			QRTR_INFO(node->ilc,
 				  "RX CTRL: cmd:0x%x SVC[0x%x:0x%x] addr[0x%x:0x%x]\n",
 				  cb->type, le32_to_cpu(pkt->server.service),
 				  le32_to_cpu(pkt->server.instance),
 				  le32_to_cpu(pkt->server.node),
 				  le32_to_cpu(pkt->server.port));
+ //yangmingjin@BSP.POWER.Basic 2019/07/10 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+			/*if(cb->type == QRTR_TYPE_NEW_SERVER)
+				qrtr_svc_new(pkt->server.node, pkt->server.port, pkt->server.service);
+			else if(cb->type == QRTR_TYPE_DEL_SERVER)
+				qrtr_svc_del(pkt->server.node, pkt->server.port);*/
+#endif//VENDOR_EDIT
+		}
 		else if (cb->type == QRTR_TYPE_DEL_CLIENT ||
 			 cb->type == QRTR_TYPE_RESUME_TX)
 			QRTR_INFO(node->ilc,
@@ -312,6 +397,52 @@ static inline int kref_put_rwsem_lock(struct kref *kref,
 	}
 	return 0;
 }
+
+#ifdef VENDOR_EDIT
+//Huaqiu.Lin@PSW.CN.GPS.Power.QMI.1919976, 2019/06/01,
+//Adding for Qualcomm's patch 2432846: Add pm_wakup_event() to abort the suspend when a packet is received
+static int gps_wakeup = 0;
+
+static ssize_t gps_wakeup_proc_write(struct file *file, const char __user *buf,
+		                            size_t count,loff_t *off) {
+    //addr write code
+    int ret = 0;
+    char buffer[64] = {0};
+
+    if (count > 64) {
+       count = 64;
+    }
+
+    if (copy_from_user(buffer, buf, count)) {
+		printk("%s: read proc input error.\n", __func__);
+		return count;
+    }
+
+    // translate to integer.
+    ret = sscanf(buffer, "%d", &gps_wakeup);
+    if (ret <= 0) {
+	    printk("%s: input error\n", __func__);
+	    return count;
+    }
+
+    printk("gps_wakeup = %d \n", gps_wakeup);
+	return count;
+}
+
+static ssize_t gps_wakeup_proc_read(struct file *file, char __user *buf,
+    size_t count,loff_t *off){
+    return 0;
+}
+
+static struct file_operations gps_wakeup_proc_fops = {
+    .read = gps_wakeup_proc_read,
+    .write = gps_wakeup_proc_write,
+};
+
+static int GetGpsWakeRus() {
+    return gps_wakeup;
+}
+#endif /* VENDOR_EDIT */
 
 /* Release node resources and free the node.
  *
@@ -691,6 +822,12 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	int frag = false;
 	unsigned int ver;
 	size_t hdrlen;
+	#ifdef VENDOR_EDIT
+	//Huaqiu.Lin@PSW.CN.GPS.Power.QMI.1919976, 2019/06/01,
+	//Adding for Qualcomm's patch 2432846: Add pm_wakup_event() to abort the suspend when a packet is received
+	struct qrtr_ctrl_pkt *pkt;
+	static __le32 src_port = INVALID_PORT;
+	#endif /* VENDOR_EDIT */
 
 	if (len & 3)
 		return -EINVAL;
@@ -757,8 +894,6 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	    cb->type != QRTR_TYPE_RESUME_TX)
 		goto err;
 
-	__pm_wakeup_event(node->ws, 0);
-
 	if (frag) {
 		skb->data_len = size;
 		skb->len = size;
@@ -766,6 +901,36 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	} else {
 		skb_put_data(skb, data + hdrlen, size);
 	}
+
+    #ifdef VENDOR_EDIT
+    //Huaqiu.Lin@PSW.CN.GPS.Power.QMI.1919976, 2019/06/01,
+    //Adding for Qualcomm's patch 2432846: Add pm_wakup_event() to abort the suspend when a packet is received
+	if (GetGpsWakeRus() == GPSWAKEUP) {
+        if (node->ws && node->nid == 0) {
+            switch (cb->type) {
+            case QRTR_TYPE_DATA:
+                if (cb->src_port == src_port)
+                    __pm_wakeup_event(node->ws, 0);
+                break;
+            case QRTR_TYPE_NEW_SERVER:
+                pkt = (void *)skb->data;
+                //Location service of id is 0x10
+                if (le32_to_cpu(pkt->server.service) ==
+                   GPS_QRTR_SERVICE_ID) {
+                    src_port = le32_to_cpu(pkt->server.port);
+                    __pm_wakeup_event(node->ws, 0);
+                }
+                break;
+            case QRTR_TYPE_DEL_SERVER:
+                pkt = (void *)skb->data;
+                if (le32_to_cpu(pkt->server.service) ==
+                   GPS_QRTR_SERVICE_ID)
+                    src_port = INVALID_PORT;
+                break;
+            }
+        }
+    }
+    #endif /* VENDOR_EDIT */
 	qrtr_log_rx_msg(node, skb);
 
 	skb_queue_tail(&node->rx_queue, skb);
@@ -1838,6 +2003,15 @@ static int __init qrtr_proto_init(void)
 
 	rtnl_register(PF_QIPCRTR, RTM_NEWADDR, qrtr_addr_doit, NULL, 0);
 
+	#ifdef VENDOR_EDIT
+	//Huaqiu.Lin@PSW.CN.GPS.Power.QMI.1919976, 2019/06/01,
+	//Adding for Qualcomm's patch 2432846: Add pm_wakup_event() to abort the suspend when a packet is received
+	proc_create("gpswakeup", S_IRWXUGO, NULL, &gps_wakeup_proc_fops);
+	#endif /* VENDOR_EDIT */
+//yangmingjin@BSP.POWER.Basic 2019/07/10 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+    qrtr_svc_init();
+#endif//VENDOR_EDIT
 	return 0;
 }
 postcore_initcall(qrtr_proto_init);
@@ -1847,6 +2021,10 @@ static void __exit qrtr_proto_fini(void)
 	rtnl_unregister(PF_QIPCRTR, RTM_NEWADDR);
 	sock_unregister(qrtr_family.family);
 	proto_unregister(&qrtr_proto);
+//yangmingjin@BSP.POWER.Basic 2019/07/10 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+	qrtr_svc_deinit();
+#endif//VENDOR_EDIT
 }
 module_exit(qrtr_proto_fini);
 

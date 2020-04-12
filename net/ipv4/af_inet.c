@@ -136,6 +136,69 @@ static inline int current_has_network(void)
 }
 #endif
 
+//Wei.Liu@TECH.CTAIFS, 2019/7/27, added for CTA test
+#ifdef OPPO_CTA_FLAG
+#define  STAT_TIME  30//unit:second
+#define IPV4ADDRTOSTR(addr) \
+((unsigned char *)&addr)[0], \
+((unsigned char *)&addr)[1], \
+((unsigned char *)&addr)[2], \
+((unsigned char *)&addr)[3]
+
+
+enum sock_operation
+{
+    OP_CONNECTED,
+    OP_SEND,
+    OP_RECV,
+    OP_CLOSE,
+};
+
+#define BUFF_LEN 128
+#define CTA_MSG_HEAD_LEN 8
+#define MSG_ALIGN    4U
+#define CTA_MSG_ALIGN(len) ( ((len)+MSG_ALIGN-1) & ~(MSG_ALIGN-1) )
+
+extern int oppo_nf_hooks_send_to_user(int msg_type, char *payload, int payload_len);
+
+void print_socket_info(struct sock *sk, int operation) {
+       char  msg_buf[BUFF_LEN] = {0};
+       unsigned int    *p_len = (unsigned int*)(msg_buf);
+       unsigned int  *p_uid = (unsigned int*)(msg_buf + sizeof(int));
+       char  *msg_body = msg_buf + CTA_MSG_HEAD_LEN;
+       if (sk == NULL || !sk->sk_cmdline[0]) {
+       return;
+    }
+
+      switch(operation)
+       {
+          case OP_CONNECTED:
+                  snprintf(msg_body, BUFF_LEN - CTA_MSG_HEAD_LEN, "[connecting to network...]:[flow:0x%p][to:%d.%d.%d.%d:%d]",
+                        sk, IPV4ADDRTOSTR(sk->sk_daddr), ntohs(sk->sk_dport));
+                  break;
+          case OP_SEND:
+                  snprintf(msg_body, BUFF_LEN - CTA_MSG_HEAD_LEN, "[sending message...]:[flow:0x%p][from:%d.%d.%d.%d:%d]:[to:%d.%d.%d.%d:%d]",
+                        sk, IPV4ADDRTOSTR(sk->sk_rcv_saddr), sk->sk_num, IPV4ADDRTOSTR(sk->sk_daddr), ntohs(sk->sk_dport));
+                  break;
+          case OP_RECV:
+                  snprintf(msg_body, BUFF_LEN- CTA_MSG_HEAD_LEN, "[receiving message...]:[flow:0x%p]:[from:%d.%d.%d.%d:%d]:[to:%d.%d.%d.%d:%d]",
+                        sk, IPV4ADDRTOSTR(sk->sk_daddr), ntohs(sk->sk_dport), IPV4ADDRTOSTR(sk->sk_rcv_saddr), sk->sk_num);
+                   break;
+          case OP_CLOSE:
+                  snprintf(msg_body, BUFF_LEN - CTA_MSG_HEAD_LEN, "[disconecting from network...]:[flow:0x%p][local:%d.%d.%d.%d:%d]:[remote:%d.%d.%d.%d:%d]",
+                        sk, IPV4ADDRTOSTR(sk->sk_daddr), sk->sk_num, IPV4ADDRTOSTR(sk->sk_rcv_saddr), ntohs(sk->sk_num));
+                  break;
+           default:
+                  return;
+       }
+
+       msg_buf[BUFF_LEN - 1] = 0;
+       *p_len = (unsigned int)(strlen(msg_body) + CTA_MSG_HEAD_LEN);
+       *p_uid = (unsigned int)(sk->sk_uid.val);
+       oppo_nf_hooks_send_to_user(0x14, msg_buf, strlen(msg_body) + CTA_MSG_HEAD_LEN);
+}
+#endif
+
 int sysctl_reserved_port_bind __read_mostly = 1;
 
 /* The inetsw table contains everything that inet_create needs to
@@ -680,8 +743,14 @@ int __inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 	 * Hence, it is handled normally after connect() return successfully.
 	 */
 
-	sock->state = SS_CONNECTED;
-	err = 0;
+    sock->state = SS_CONNECTED;
+    err = 0;
+
+//Wei.Liu@TECH.KERNEL, 2019/7/27, added for CTA test
+#ifdef OPPO_CTA_FLAG
+    print_socket_info(sk, OP_CONNECTED);
+#endif
+
 out:
 	return err;
 
@@ -780,7 +849,15 @@ int inet_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 	    inet_autobind(sk))
 		return -EAGAIN;
 
-	return sk->sk_prot->sendmsg(sk, msg, size);
+#ifdef OPPO_CTA_FLAG
+      //Wei.Liu@TECH.CTAIFS, 2019/7/27, added for CTA test
+      if(!sock->last_send_stat_time || (s64)(jiffies_64 - (sock->last_send_stat_time + STAT_TIME * HZ)) > 0){
+            print_socket_info(sock->sk, OP_SEND);
+         sock->last_send_stat_time = jiffies_64;
+      }
+#endif
+  
+    return sk->sk_prot->sendmsg(sk, msg, size);
 }
 EXPORT_SYMBOL(inet_sendmsg);
 
@@ -811,11 +888,20 @@ int inet_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
 
 	sock_rps_record_flow(sk);
 
-	err = sk->sk_prot->recvmsg(sk, msg, size, flags & MSG_DONTWAIT,
-				   flags & ~MSG_DONTWAIT, &addr_len);
-	if (err >= 0)
-		msg->msg_namelen = addr_len;
-	return err;
+    err = sk->sk_prot->recvmsg(sk, msg, size, flags & MSG_DONTWAIT,
+                   flags & ~MSG_DONTWAIT, &addr_len);
+
+#ifdef OPPO_CTA_FLAG
+      //Wei.Liu@TECH.CTAIFS, 2019/7/27, added for CTA test
+      if(!sock->last_rcv_stat_time || (s64)(jiffies_64 - (sock->last_rcv_stat_time + STAT_TIME * HZ)) > 0){
+             print_socket_info(sock->sk, OP_RECV);
+          sock->last_rcv_stat_time = jiffies_64;
+      }
+#endif
+
+    if (err >= 0)
+        msg->msg_namelen = addr_len;
+    return err;
 }
 EXPORT_SYMBOL(inet_recvmsg);
 
@@ -842,16 +928,21 @@ int inet_shutdown(struct socket *sock, int how)
 			sock->state = SS_CONNECTED;
 	}
 
-	switch (sk->sk_state) {
-	case TCP_CLOSE:
-		err = -ENOTCONN;
-		/* Hack to wake up other listeners, who can poll for
-		   POLLHUP, even on eg. unconnected UDP sockets -- RR */
-	default:
-		sk->sk_shutdown |= how;
-		if (sk->sk_prot->shutdown)
-			sk->sk_prot->shutdown(sk, how);
-		break;
+    switch (sk->sk_state) {
+    case TCP_CLOSE:
+        err = -ENOTCONN;
+        /* Hack to wake up other listeners, who can poll for
+           POLLHUP, even on eg. unconnected UDP sockets -- RR */
+    default:
+        sk->sk_shutdown |= how;
+        if (sk->sk_prot->shutdown)
+            sk->sk_prot->shutdown(sk, how);
+
+#ifdef OPPO_CTA_FLAG
+            //Wei.Liu@TECH.CTAIFS, 2019/7/27, added for CTA test
+            print_socket_info(sock->sk, OP_CLOSE);
+#endif
+        break;
 
 	/* Remaining two branches are temporary solution for missing
 	 * close() in multithreaded environment. It is _not_ a good idea,

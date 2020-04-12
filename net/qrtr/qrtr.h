@@ -4,6 +4,19 @@
 
 #include <linux/types.h>
 
+
+#ifdef VENDOR_EDIT
+//yunqing.zeng@bsp.power.basic 20190709 add for glink count cal
+extern u64 glink_wakeup_count;
+extern u64 glink_wakeup_count_modem;
+extern u64 glink_wakeup_count_adsp;
+extern u64 glink_wakeup_count_cdsp;
+
+//yunqing.zeng@bsp.power.basic 20190709 add for adsp count cal
+extern u64 wakeup_source_count_cdsp;
+extern u64 wakeup_source_count_adsp;
+#endif
+
 struct sk_buff;
 
 /* endpoint node id auto assignment */

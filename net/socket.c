@@ -1256,6 +1256,13 @@ int __sock_create(struct net *net, int family, int type, int protocol,
 
 	sock->type = type;
 
+#ifdef OPPO_CTA_FLAG
+    //Wei.Liu@TECH.CTAIFS, 2019/7/27, added for CTA test
+    sock->last_rcv_stat_time = 0;
+    sock->last_send_stat_time = 0;
+#endif
+
+
 #ifdef CONFIG_MODULES
 	/* Attempt to load a protocol module if the find failed.
 	 *

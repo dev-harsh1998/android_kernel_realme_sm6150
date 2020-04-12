@@ -63,6 +63,13 @@ static void dwc3_ep0_prepare_one_trb(struct dwc3_ep *dep,
 	trb->size = len;
 	trb->ctrl = type;
 
+	/*
+	* Ensure that updates of buffer address and size happens
+	* before we set the DWC3_TRB_CTRL_HWO so that core
+	* does not process any stale TRB.
+	*/
+	mb();
+
 	trb->ctrl |= (DWC3_TRB_CTRL_HWO
 			| DWC3_TRB_CTRL_ISP_IMI);
 

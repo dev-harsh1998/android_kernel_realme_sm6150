@@ -88,6 +88,28 @@
 
 #define USB_HSPHY_VDD_HPM_LOAD			30000	/* uA */
 
+#ifdef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-05-28  for usb tune */
+#define QUSB2PHY_PORT_TUNE1 0x6c    // PARAMETER_OVERRIDE_X0
+#define QUSB2PHY_PORT_TUNE2 0x70    // PARAMETER_OVERRIDE_X1
+#define QUSB2PHY_PORT_TUNE3 0x74    // PARAMETER_OVERRIDE_X2
+#define QUSB2PHY_PORT_TUNE4 0x78    // PARAMETER_OVERRIDE_X3
+
+unsigned int dev_phy_tune1 = 0x66;
+module_param(dev_phy_tune1, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(dev_phy_tune1, "QUSB PHY v2 TUNE1");
+unsigned int dev_phy_tune2 = 0x2D;
+module_param(dev_phy_tune2, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(dev_phy_tune2, "QUSB PHY v2 TUNE2");
+
+unsigned int dev_phy_tune3 = 0x1C;
+module_param(dev_phy_tune3, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(dev_phy_tune3, "QUSB PHY v2 TUNE1");
+unsigned int dev_phy_tune4 = 0;
+module_param(dev_phy_tune4, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(dev_phy_tune4, "QUSB PHY v2 TUNE2");
+#endif
+
 struct msm_hsphy {
 	struct usb_phy		phy;
 	void __iomem		*base;
@@ -370,6 +392,36 @@ static int msm_hsphy_emu_init(struct usb_phy *uphy)
 	return 0;
 }
 
+#ifdef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-05-28  for usb tune */
+static void hsusb_phy_read_seq(void __iomem *base, u32 *seq, int cnt,
+		unsigned long delay)
+{
+	///int i;
+	u32 tmp = 0;
+
+	pr_debug(" hsusb_phy_read_seq Seq count:%d\n", cnt);
+
+	tmp = readl_relaxed(base + QUSB2PHY_PORT_TUNE1);
+	pr_err("11 value: 0x%02x addr: 0x%02x\n", tmp, QUSB2PHY_PORT_TUNE1);
+	if (delay)
+		usleep_range(delay, (delay + 2000));
+
+	tmp = readl_relaxed(base + QUSB2PHY_PORT_TUNE2);
+	pr_err("22 value: 0x%02x addr: 0x%02x\n", tmp, QUSB2PHY_PORT_TUNE2);
+	if (delay)
+		usleep_range(delay, (delay + 2000));
+
+	tmp = readl_relaxed(base + QUSB2PHY_PORT_TUNE3);
+	pr_err("33 value: 0x%02x addr: 0x%02x\n", tmp, QUSB2PHY_PORT_TUNE3);
+	if (delay)
+		usleep_range(delay, (delay + 2000));
+
+	tmp = readl_relaxed(base + QUSB2PHY_PORT_TUNE4);
+	pr_err("44 value: 0x%02x addr: 0x%02x\n", tmp, QUSB2PHY_PORT_TUNE4);
+}
+#endif
+
 static int msm_hsphy_init(struct usb_phy *uphy)
 {
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
@@ -466,6 +518,31 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 				phy->rcal_mask, phy->phy_rcal_reg, rcal_code);
 	}
 
+#ifdef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-05-28  for usb tune */
+	/*add for dynamic change tune settings*/
+	/* If phy_tune1 modparam set, override tune1 value */
+	if (dev_phy_tune1) {
+		pr_err("%s():oppo (modparam) TUNE1 val:0x%02x\n", __func__, dev_phy_tune1);
+		writel_relaxed(dev_phy_tune1, phy->base + QUSB2PHY_PORT_TUNE1);
+	}
+	/* If phy_tune2 modparam set, override tune2 value */
+	if (dev_phy_tune2) {
+		pr_err("%s():oppo (modparam) TUNE2 val:0x%02x\n", __func__, dev_phy_tune2);
+		writel_relaxed(dev_phy_tune2, phy->base + QUSB2PHY_PORT_TUNE2);
+	}
+	/* If phy_tune3 modparam set, override tune3 value */
+	if (dev_phy_tune3) {
+		pr_err("%s():oppo (modparam) TUNE3 val:0x%02x\n", __func__, dev_phy_tune3);
+		writel_relaxed(dev_phy_tune3, phy->base + QUSB2PHY_PORT_TUNE3);
+	}
+	/* If phy_tune4 modparam set, override tune4 value */
+	if (dev_phy_tune4) {
+		pr_err("%s():oppo (modparam) TUNE4 val:0x%02x\n", __func__, dev_phy_tune4);
+		writel_relaxed(dev_phy_tune4, phy->base + QUSB2PHY_PORT_TUNE4);
+	}
+#endif
+
 	/* Use external resistor for tuning if efuse is not programmed */
 	if (!rcal_code)
 		msm_usb_write_readback(phy->base, USB2PHY_USB_PHY_RTUNE_SEL,
@@ -489,6 +566,13 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 
 	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
 				UTMI_PHY_CMN_CTRL_OVERRIDE_EN, 0);
+
+#ifdef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-05-28  for usb tune */
+	hsusb_phy_read_seq(phy->base, phy->param_override_seq,
+				phy->param_override_seq_cnt, 0);
+	pr_debug("hsusb_phy_read_seq again  end\n");
+#endif
 
 	return 0;
 }

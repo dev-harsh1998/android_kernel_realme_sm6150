@@ -30,6 +30,7 @@
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 
+
 /* UART specific GENI registers */
 #define SE_UART_LOOPBACK_CFG		(0x22C)
 #define SE_UART_TX_TRANS_CFG		(0x25C)
@@ -170,6 +171,7 @@ struct msm_geni_serial_port {
 
 static const struct uart_ops msm_geni_serial_pops;
 static struct uart_driver msm_geni_console_driver;
+
 static struct uart_driver msm_geni_serial_hs_driver;
 static int handle_rx_console(struct uart_port *uport,
 			unsigned int rx_fifo_wc,
@@ -197,6 +199,36 @@ static atomic_t uart_line_id = ATOMIC_INIT(0);
 
 static struct msm_geni_serial_port msm_geni_console_port;
 static struct msm_geni_serial_port msm_geni_serial_ports[GENI_UART_NR_PORTS];
+
+#ifdef VENDOR_EDIT
+/*xing.xiong@BSP.Kernel.Driver, 2019/06/14, Add for uart control via cmdline*/
+extern bool oem_disable_uart(void);
+bool boot_with_console(void)
+{
+
+	return !oem_disable_uart();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+EXPORT_SYMBOL(boot_with_console);
+#endif
 
 static void msm_geni_serial_config_port(struct uart_port *uport, int cfg_flags)
 {
@@ -710,6 +742,13 @@ __msm_geni_serial_console_write(struct uart_port *uport, const char *s,
 	int bytes_to_send = count;
 	int fifo_depth = DEF_FIFO_DEPTH_WORDS;
 	int tx_wm = DEF_TX_WM;
+
+#ifdef VENDOR_EDIT
+/*xing.xiong@BSP.Kernel.Driver, 2019/06/14, Add for uart control via cmdline*/
+	if (!boot_with_console()) {
+		return;
+	}
+#endif
 
 	for (i = 0; i < count; i++) {
 		if (s[i] == '\n')
@@ -2319,6 +2358,30 @@ static const struct of_device_id msm_geni_device_tbl[] = {
 	{},
 };
 
+#ifdef VENDOR_EDIT
+/*xing.xiong@BSP.Kernel.Driver, 2019/06/14, Add for uart control via cmdline*/
+static bool oppo_charge_id_reconfig(struct platform_device *pdev, struct uart_driver *drv)
+{
+	static struct pinctrl *serial_pinctrl = NULL;
+	static struct pinctrl_state *serial_pinctrl_state_disable = NULL;
+
+	serial_pinctrl = devm_pinctrl_get(&pdev->dev);
+
+	if (drv == &msm_geni_console_driver) {
+		if (!IS_ERR_OR_NULL(serial_pinctrl)) {
+			serial_pinctrl_state_disable = pinctrl_lookup_state(serial_pinctrl, PINCTRL_SLEEP);
+			if (!IS_ERR_OR_NULL(serial_pinctrl_state_disable))
+				pinctrl_select_state(serial_pinctrl, serial_pinctrl_state_disable);
+		}
+
+		dev_info(&pdev->dev, "boot without console\n");
+		return true;
+	}
+
+	return false;
+}
+#endif
+
 static int msm_geni_serial_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2341,6 +2404,13 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "%s: No matching device found", __func__);
 		return -ENODEV;
 	}
+
+#ifdef VENDOR_EDIT
+/*xing.xiong@BSP.Kernel.Driver, 2019/06/14, Add for uart control via cmdline*/
+	if (!boot_with_console() && oppo_charge_id_reconfig(pdev, drv)) {
+		return -ENODEV;
+	}
+#endif
 
 	if (pdev->dev.of_node) {
 		if (drv->cons)
@@ -2721,6 +2791,13 @@ static int __init msm_geni_serial_init(void)
 		msm_geni_console_port.uport.line = i;
 	}
 
+#ifdef VENDOR_EDIT
+/*xing.xiong@BSP.Kernel.Driver, 2019/06/14, Add for uart control via cmdline*/
+	if (!boot_with_console()) {
+		msm_geni_console_driver.cons = NULL;
+	}
+#endif
+
 	ret = console_register(&msm_geni_console_driver);
 	if (ret)
 		return ret;
@@ -2747,6 +2824,7 @@ static void __exit msm_geni_serial_exit(void)
 {
 	platform_driver_unregister(&msm_geni_serial_platform_driver);
 	uart_unregister_driver(&msm_geni_serial_hs_driver);
+
 	console_unregister(&msm_geni_console_driver);
 }
 module_exit(msm_geni_serial_exit);

@@ -142,6 +142,14 @@ static void sysrq_handle_crash(int key)
 	 * 'BUG: sleeping function called from invalid context'
 	 * complaint from the kernel before the panic.
 	 */
+
+
+
+
+
+
+
+
 	rcu_read_unlock();
 	panic_on_oops = 1;	/* force panic */
 	wmb();

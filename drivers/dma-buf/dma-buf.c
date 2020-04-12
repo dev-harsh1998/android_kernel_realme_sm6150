@@ -1421,7 +1421,45 @@ mem_err:
 	}
 	return ret;
 }
+#ifdef VENDOR_EDIT
+/* Wen.Luo@BSP.Kernel.Stability, 2019/04/26, Add for Process memory statistics */
+size_t get_ion_heap_by_task(struct task_struct *task)
+{
+	struct task_struct *thread;
+	struct files_struct *files;
+	int ret = 0, ionsize = 0;
+	struct dma_proc *tmp;
+	struct files_struct *group_leader_files = NULL;
 
+	rcu_read_lock();
+
+	tmp = kzalloc(sizeof(*tmp), GFP_ATOMIC);
+	if (!tmp) {
+		ret = -ENOMEM;
+		goto mem_err;
+	}
+	hash_init(tmp->dma_bufs);
+	for_each_thread(task, thread) {
+		task_lock(thread);
+		if (unlikely(!group_leader_files))
+			group_leader_files = task->group_leader->files;
+		files = thread->files;
+		if (files && (group_leader_files != files ||
+				  thread == task->group_leader))
+			ret = iterate_fd(files, 0, get_dma_info, tmp);
+		task_unlock(thread);
+	}
+	if (ret || hash_empty(tmp->dma_bufs))
+		goto out;
+	ionsize = tmp->size;
+out:
+	free_proc(tmp);
+mem_err:
+	rcu_read_unlock();
+	return ionsize;
+}
+EXPORT_SYMBOL(get_ion_heap_by_task);
+#endif
 static int dma_procs_debug_open(struct inode *f_inode, struct file *file)
 {
 	return single_open(file, dma_procs_debug_show, NULL);

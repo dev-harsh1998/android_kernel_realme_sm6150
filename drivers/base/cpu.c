@@ -362,11 +362,32 @@ static ssize_t print_cpus_isolated(struct device *dev,
 {
 	int n = 0, len = PAGE_SIZE-2;
 
+#ifdef VENDOR_EDIT
+	/* Hui.Fan@SWDP.BSP.OPPOFeature.Hypnus, 2017-03-13, fix print error */
+	n = scnprintf(buf, len, "%*pbl\n", cpumask_pr_args(cpu_isolated_mask));
+#else
 	n = scnprintf(buf, len, "%*pbl\n", cpumask_pr_args(cpu_isolated_map));
+#endif /* VENDOR_EDIT */
 
 	return n;
 }
 static DEVICE_ATTR(isolated, 0444, print_cpus_isolated, NULL);
+
+#ifdef VENDOR_EDIT
+/* Hui.Fan@SWDP.BSP.OPPOFeature.Hypnus, 2017-03-11, print available cpus */
+static ssize_t print_cpus_available(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	int n = 0, len = PAGE_SIZE-2;
+	struct cpumask avail_mask;
+
+	cpumask_andnot(&avail_mask, cpu_online_mask, cpu_isolated_mask);
+	n = scnprintf(buf, len, "%*pbl\n", cpumask_pr_args(&avail_mask));
+
+	return n;
+}
+static DEVICE_ATTR(avail, 0444, print_cpus_available, NULL);
+#endif /* VENDOR_EDIT */
 
 #ifdef CONFIG_NO_HZ_FULL
 static ssize_t print_cpus_nohz_full(struct device *dev,
@@ -551,6 +572,10 @@ static struct attribute *cpu_root_attrs[] = {
 	&dev_attr_kernel_max.attr,
 	&dev_attr_offline.attr,
 	&dev_attr_isolated.attr,
+#ifdef VENDOR_EDIT
+/* Hui.Fan@SWDP.BSP.OPPOFeature.Hypnus, 2017-03-11, print available cpus */
+	&dev_attr_avail.attr,
+#endif
 #ifdef CONFIG_NO_HZ_FULL
 	&dev_attr_nohz_full.attr,
 #endif

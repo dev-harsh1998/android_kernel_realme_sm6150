@@ -1637,11 +1637,26 @@ static void register_cluster_lpm_stats(struct lpm_cluster *cl,
 		register_cluster_lpm_stats(child, cl);
 }
 
+//yangmingjin@BSP.POWER.Basic 2019/05/30 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+extern void rpmstats_print(bool suspend);
+extern void rpm_master_stats_print(void);
+extern bool is_not_in_aosd_mode(void);
+#endif
+/* VENDOR_EDIT */
 static int lpm_suspend_prepare(void)
 {
 	suspend_in_progress = true;
 	lpm_stats_suspend_enter();
-
+//yangmingjin@BSP.POWER.Basic 2019/05/30 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+	rpmstats_print(true);
+	rpm_master_stats_print();
+	if(is_not_in_aosd_mode()){
+		printk(KERN_ERR"[RM_POWER]: warning!!! system can not enter vddmin mode.\n");
+	}
+#endif
+/* VENDOR_EDIT */
 	return 0;
 }
 
@@ -1649,6 +1664,11 @@ static void lpm_suspend_wake(void)
 {
 	suspend_in_progress = false;
 	lpm_stats_suspend_exit();
+//yangmingjin@BSP.POWER.Basic 2019/05/30 add for RM_TAG_POWER_DEBUG
+#ifdef VENDOR_EDIT
+	rpmstats_print(false);
+#endif
+/* VENDOR_EDIT */
 }
 
 static int lpm_suspend_enter(suspend_state_t state)

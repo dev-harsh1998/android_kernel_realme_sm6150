@@ -229,6 +229,10 @@ config ENABLE_MUST_CHECK
 config FRAME_WARN
 	int "Warn for stack frames larger than (needs gcc 4.4)"
 	range 0 8192
+	#ifdef VENDOR_EDIT
+	#Wen.Luo@Bsp.Kernel.Stability, 2018/12/05, Add for aging test, debug config
+	default 0 if KASAN
+	#endif
 	default 3072 if KASAN_EXTRA
 	default 2048 if GCC_PLUGIN_LATENT_ENTROPY
 	default 1280 if (!64BIT && PARISC)
@@ -539,7 +543,13 @@ config DEBUG_SLAB_LEAK
 config SLUB_DEBUG_ON
 	bool "SLUB debugging on by default"
 	depends on SLUB && SLUB_DEBUG
-	default n
+	#ifdef VENDOR_EDIT
+	#Wen.Luo@Bsp.Kernel.Stability, 2018/12/05, Add for aging test, slub debug config
+	default y if SLUB_DEBUG
+	default n if !SLUB_DEBUG
+	#else
+	#default n
+	#endif
 	help
 	  Boot with debugging on by default. SLUB boots by default with
 	  the runtime debug capabilities switched off. Enabling this is
@@ -568,6 +578,11 @@ config HAVE_DEBUG_KMEMLEAK
 config DEBUG_KMEMLEAK
 	bool "Kernel memory leak detector"
 	depends on DEBUG_KERNEL && HAVE_DEBUG_KMEMLEAK
+	#ifdef VENDOR_EDIT
+	#Wen.Luo@Bsp.Kernel.Stability, 2018/12/05, Add for aging test, kmemleak debug config
+	default y if OPPO_KMEMLEAK_TEST = "true"
+	default n
+	#endif
 	select DEBUG_FS
 	select STACKTRACE if STACKTRACE_SUPPORT
 	select KALLSYMS
@@ -592,7 +607,12 @@ config DEBUG_KMEMLEAK_EARLY_LOG_SIZE
 	int "Maximum kmemleak early log entries"
 	depends on DEBUG_KMEMLEAK
 	range 200 40000
-	default 400
+	#ifdef VENDOR_EDIT
+	#Wen.Luo@Bsp.Kernel.Stability, 2018/12/05, Add for aging test, kmemleak debug config
+	default 5400 if DEBUG_KMEMLEAK
+	range 200 40000
+	#default 400
+	#endif
 	help
 	  Kmemleak must track all the memory allocations to avoid
 	  reporting false positives. Since memory may be allocated or
@@ -766,6 +786,11 @@ config ARCH_HAS_KCOV
 config KCOV
 	bool "Code coverage for fuzzing"
 	depends on ARCH_HAS_KCOV
+	#ifdef VENDOR_EDIT
+	#Wen.Luo@Bsp.Kernel.Stability, 2018/12/05, OPPO_KASAN_CONFIG
+	default y if OPPO_KASAN_TEST = "true"
+	default n
+	#endif
 	select DEBUG_FS
 	select GCC_PLUGINS if !COMPILE_TEST
 	select GCC_PLUGIN_SANCOV if !COMPILE_TEST

@@ -2051,6 +2051,7 @@ static void do_header_and_snapshot(struct kgsl_device *device, int fault,
 		struct adreno_ringbuffer *rb, struct kgsl_drawobj_cmd *cmdobj,
 		bool gx_on)
 {
+
 	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
 
 	/* Always dump the snapshot on a non-drawobj failure */
@@ -2066,7 +2067,6 @@ static void do_header_and_snapshot(struct kgsl_device *device, int fault,
 
 	/* Print the fault header */
 	adreno_fault_header(device, rb, cmdobj, fault, gx_on);
-
 	if (!(drawobj->context->flags & KGSL_CONTEXT_NO_SNAPSHOT))
 		kgsl_device_snapshot(device, drawobj->context,
 					fault & ADRENO_GMU_FAULT);

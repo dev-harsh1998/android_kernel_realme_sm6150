@@ -630,6 +630,64 @@ static void _sde_cp_crtc_enable_hist_irq(struct sde_crtc *sde_crtc)
 	spin_unlock_irqrestore(&node->state_lock, flags);
 }
 
+#ifdef VENDOR_EDIT
+/*Mark.Yao@PSW.MM.Display.LCD.Stable,2019-04-28 fix pcc abnormal on onscreenfinger scene */
+struct drm_msm_pcc oppo_save_pcc;
+bool oppo_pcc_enabled = false;
+bool oppo_fp_mode = false;
+extern bool sde_crtc_get_fingerprint_mode(struct drm_crtc_state *crtc_state);
+extern bool is_dsi_panel(struct drm_crtc *crtc);
+bool sde_cp_crtc_update_pcc(struct drm_crtc *crtc)
+{
+	struct sde_hw_cp_cfg hw_cfg;
+	struct sde_hw_dspp *hw_dspp;
+	struct sde_hw_mixer *hw_lm;
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	u32 num_mixers = sde_crtc->num_mixers;
+	bool need_flush = false;
+	bool fp_mode;
+	int i = 0;
+
+	if (!is_dsi_panel(&sde_crtc->base))
+		return false;
+
+	fp_mode = sde_crtc_get_fingerprint_mode(crtc->state);
+	if (oppo_fp_mode == fp_mode)
+		return false;
+	oppo_fp_mode = fp_mode;
+
+	memset(&hw_cfg, 0, sizeof(hw_cfg));
+	if (sde_crtc_get_fingerprint_mode(crtc->state)) {
+		if (oppo_pcc_enabled) {
+			need_flush = true;
+		}
+	} else if (oppo_pcc_enabled){
+		hw_cfg.payload = &oppo_save_pcc;
+		hw_cfg.len = sizeof(oppo_save_pcc);
+		need_flush = true;
+	}
+
+	if (!need_flush)
+		return false;
+
+	for (i = 0; i < num_mixers; i++) {
+		hw_lm = sde_crtc->mixers[i].hw_lm;
+		hw_dspp = sde_crtc->mixers[i].hw_dspp;
+		if (!hw_lm)
+			continue;
+		if (!hw_dspp || !hw_dspp->ops.setup_pcc)
+			continue;
+
+		hw_cfg.ctl = sde_crtc->mixers[i].hw_ctl;
+		hw_cfg.mixer_info = hw_lm;
+		hw_cfg.displayh = num_mixers * hw_lm->cfg.out_width;
+		hw_cfg.displayv = hw_lm->cfg.out_height;
+		hw_dspp->ops.setup_pcc(hw_dspp, &hw_cfg);
+	}
+	return true;
+}
+#endif
+
 static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 				   struct sde_crtc *sde_crtc)
 {
@@ -670,6 +728,22 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 				ret = -EINVAL;
 				continue;
 			}
+
+#ifdef VENDOR_EDIT
+/*Mark.Yao@PSW.MM.Display.LCD.Stable,2019-04-28 fix pcc abnormal on onscreenfinger scene */
+			if (is_dsi_panel(&sde_crtc->base)) {
+				if (hw_cfg.payload && (hw_cfg.len == sizeof(oppo_save_pcc))) {
+					memcpy(&oppo_save_pcc, hw_cfg.payload, hw_cfg.len);
+					oppo_pcc_enabled = true;
+					if (sde_crtc_get_fingerprint_mode(sde_crtc->base.state)) {
+						hw_cfg.payload = NULL;
+						hw_cfg.len = 0;
+					}
+				} else {
+					oppo_pcc_enabled = false;
+				}
+			}
+#endif
 			hw_dspp->ops.setup_pcc(hw_dspp, &hw_cfg);
 			break;
 		case SDE_CP_CRTC_DSPP_IGC:
@@ -869,6 +943,10 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 	struct sde_cp_node *prop_node = NULL, *n = NULL;
 	struct sde_hw_ctl *ctl;
 	u32 num_mixers = 0, i = 0;
+	#ifdef VENDOR_EDIT
+	/*Mark.Yao@PSW.MM.Display.LCD.Stable,2019-04-28 fix pcc abnormal on onscreenfinger scene */
+	bool dirty_pcc = false;
+	#endif /* VENDOR_EDIT */
 
 	if (!crtc || !crtc->dev) {
 		DRM_ERROR("invalid crtc %pK dev %pK\n", crtc,
@@ -890,12 +968,26 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 
 	mutex_lock(&sde_crtc->crtc_cp_lock);
 
+	#ifdef VENDOR_EDIT
+	/*Mark.Yao@PSW.MM.Display.LCD.Stable,2019-04-28 fix pcc abnormal on onscreenfinger scene */
+	dirty_pcc = sde_cp_crtc_update_pcc(crtc);
+	if (dirty_pcc) {
+		set_dspp_flush = true;
+	}
+	#endif /* VENDOR_EDIT */
+
 	/* Check if dirty lists are empty and ad features are disabled for
 	 * early return. If ad properties are active then we need to issue
 	 * dspp flush.
 	 **/
+	#ifdef VENDOR_EDIT
+	/*Mark.Yao@PSW.MM.Display.LCD.Stable,2019-04-28 fix pcc abnormal on onscreenfinger scene */
+	if (!dirty_pcc && list_empty(&sde_crtc->dirty_list) &&
+		list_empty(&sde_crtc->ad_dirty)) {
+	#else
 	if (list_empty(&sde_crtc->dirty_list) &&
 		list_empty(&sde_crtc->ad_dirty)) {
+	#endif
 		if (list_empty(&sde_crtc->ad_active)) {
 			DRM_DEBUG_DRIVER("Dirty list is empty\n");
 			goto exit;

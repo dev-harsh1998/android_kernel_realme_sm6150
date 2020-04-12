@@ -32,6 +32,30 @@
 #include "sde_dbg.h"
 #include "dsi_parser.h"
 
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.Lcd.Stability, 2018-05-31
+ * add for drm notifier for display connect
+*/
+//#include <linux/oppo_mm_kevent_fb.h>
+#include <linux/msm_drm_notify.h>
+#include <linux/notifier.h>
+
+/* hujie@PSW.MM.Display.Lcd.Stability, 2019-06-15, add for Mipi clock link*/
+extern struct kobject *oppo_display_kobj;
+
+extern int msm_drm_notifier_call_chain(unsigned long val, void *v);
+extern int oppo_dsi_update_seed_mode(void);
+/* Don't panic if smmu fault*/
+extern int sde_kms_set_smmu_no_fatal_faults(struct drm_device *drm);
+
+/* Add for solve sau issue*/
+extern int lcd_closebl_flag;
+/* Add for fingerprint silence*/
+extern int lcd_closebl_flag_fp;
+/* Add for ffl feature */
+extern bool oppo_ffl_trigger_finish;
+#endif
+
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
 #define NO_OVERRIDE -1
@@ -43,6 +67,14 @@
 
 #define DSI_CLOCK_BITRATE_RADIX 10
 #define MAX_TE_SOURCE_ID  2
+
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.Lcd.Stability, 2018-05-31
+ * add for drm notifier for display connect
+*/
+static struct dsi_display *primary_display;
+static struct dsi_display *secondary_display;
+#endif /* VENDOR_EDIT */
 
 DEFINE_MUTEX(dsi_display_clk_mutex);
 
@@ -183,6 +215,14 @@ void dsi_rect_intersect(const struct dsi_rect *r1,
 	}
 }
 
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Feature,2018-07-13
+ * Add for ffl feature
+ */
+extern int oppo_start_ffl_thread(void);
+extern void oppo_stop_ffl_thread(void);
+#endif /* VENDOR_EDIT */
+
 int dsi_display_set_backlight(struct drm_connector *connector,
 		void *display, u32 bl_lvl)
 {
@@ -203,7 +243,48 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 		goto error;
 	}
 
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Stable,2018-06-27
+ * Add key log for debug
+*/
+	if ((bl_lvl == 0 && panel->bl_config.bl_level != 0) ||
+	    (bl_lvl != 0 && panel->bl_config.bl_level == 0))
+		pr_err("backlight level changed %d -> %d\n",
+		       panel->bl_config.bl_level, bl_lvl);
+
+	/* Add some delay to avoid screen flash */
+	if (panel->need_power_on_backlight && bl_lvl) {
+		panel->need_power_on_backlight = false;
+		rc = dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_ON);
+		if (rc) {
+			pr_err("[%s] failed to send DSI_CMD_POST_ON_BACKLIGHT cmds, rc=%d\n",
+			       panel->name, rc);
+			goto error;
+		}
+
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_POST_ON_BACKLIGHT);
+
+		rc = dsi_display_clk_ctrl(dsi_display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_OFF);
+		if (rc) {
+			pr_err("[%s] failed to send DSI_CMD_POST_ON_BACKLIGHT cmds, rc=%d\n",
+			       panel->name, rc);
+			goto error;
+		}
+
+		/* Gou shengjun@PSW.MM.Display.LCD.Stable,2018-10-25 fix ffl dsi abnormal on esd scene */
+		oppo_start_ffl_thread();
+	}
+#endif /* VENDOR_EDIT */
 	panel->bl_config.bl_level = bl_lvl;
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Feature,2018-07-12
+ * Add for ffl feature
+*/
+	if (oppo_ffl_trigger_finish == false)
+		goto error;
+#endif /* VENDOR_EDIT */
 
 	/* scale backlight */
 	bl_scale = panel->bl_config.bl_scale;
@@ -222,6 +303,17 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 		       dsi_display->name, rc);
 		goto error;
 	}
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Stability,2018/4/28
+ * Add for silence reboot
+*/
+	if(lcd_closebl_flag) {
+		pr_err("silence reboot we should set backlight to zero\n");
+		bl_temp = 0;
+	} else if (bl_lvl) {
+		lcd_closebl_flag_fp = 0;
+	}
+#endif /*VENDOR_EDIT*/
 
 	rc = dsi_panel_set_backlight(panel, (u32)bl_temp);
 	if (rc)
@@ -240,7 +332,14 @@ error:
 	return rc;
 }
 
+#ifndef VENDOR_EDIT
 static int dsi_display_cmd_engine_enable(struct dsi_display *display)
+/* Gou shengjun@PSW.MM.Display.LCD.Stability,2018/4/28
+ * Add for public function
+*/
+#else
+int dsi_display_cmd_engine_enable(struct dsi_display *display)
+#endif /*VENDOR_EDIT*/
 {
 	int rc = 0;
 	int i;
@@ -284,7 +383,14 @@ done:
 	return rc;
 }
 
+#ifndef VENDOR_EDIT
 static int dsi_display_cmd_engine_disable(struct dsi_display *display)
+#else
+/* Gou shengjun@PSW.MM.Display.LCD.Stability,2018/4/28
+ * Add for public function
+*/
+int dsi_display_cmd_engine_disable(struct dsi_display *display)
+#endif /*VENDOR_EDIT*/
 {
 	int rc = 0;
 	int i;
@@ -487,7 +593,11 @@ static bool dsi_display_is_te_based_esd(struct dsi_display *display)
 }
 
 /* Allocate memory for cmd dma tx buffer */
+#ifndef VENDOR_EDIT
 static int dsi_host_alloc_cmd_tx_buffer(struct dsi_display *display)
+#else
+int dsi_host_alloc_cmd_tx_buffer(struct dsi_display *display)
+#endif
 {
 	int rc = 0, cnt = 0;
 	struct dsi_display_ctrl *display_ctrl;
@@ -564,6 +674,10 @@ static bool dsi_display_validate_reg_read(struct dsi_panel *panel)
 	int len = 0, *lenp;
 	int group = 0, count = 0;
 	struct drm_panel_esd_config *config;
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Machine, 2019/01/29,add for mm kevent fb. */
+//	unsigned char payload[35] = "";
+#endif /*VENDOR_EDIT*/
 
 	if (!panel)
 		return false;
@@ -585,6 +699,14 @@ static bool dsi_display_validate_reg_read(struct dsi_panel *panel)
 				config->status_value[group + i]) {
 				DRM_ERROR("mismatch: 0x%x\n",
 					  config->return_buf[i]);
+
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.Lcd.Stability, 2018-12-04, add for solve esd fail */
+				//DRM_ERROR("ESD check failed.\n");
+				//scnprintf(payload, sizeof(payload), "EventID@@%d$$ESD Error is@@0x%x",OPPO_MM_DIRVER_FB_EVENT_ID_ESD,config->return_buf[i]);
+				//upload_mm_kevent_fb_data(OPPO_MM_DIRVER_FB_EVENT_MODULE_DISPLAY,payload);
+#endif  /*VENDOR_EDIT*/
+
 				break;
 			}
 		}
@@ -1066,6 +1188,7 @@ static bool dsi_display_get_cont_splash_status(struct dsi_display *display)
 	return true;
 }
 
+#ifndef VENDOR_EDIT
 int dsi_display_set_power(struct drm_connector *connector,
 		int power_mode, void *disp)
 {
@@ -1090,6 +1213,107 @@ int dsi_display_set_power(struct drm_connector *connector,
 	}
 	return rc;
 }
+#else /*VENDOR_EDIT*/
+/* Gou shengjun@PSW.MM.Display.LCD.Stability,2018/4/13
+ * Implement our set power mode here
+*/
+extern bool sde_crtc_get_fingerprint_mode(struct drm_crtc_state *crtc_state);
+extern bool sde_crtc_get_fingerprint_pressed(struct drm_crtc_state *crtc_state);
+static bool sde_connector_get_fp_mode(struct drm_connector *connector)
+{
+	if (!connector || !connector->state || !connector->state->crtc)
+		return false;
+
+	return sde_crtc_get_fingerprint_mode(connector->state->crtc->state);
+}
+
+static bool sde_connector_get_fppress_mode(struct drm_connector *connector)
+{
+	if (!connector || !connector->state || !connector->state->crtc)
+		return false;
+
+	return sde_crtc_get_fingerprint_pressed(connector->state->crtc->state);
+}
+
+int dsi_display_set_power(struct drm_connector *connector,
+		int power_mode, void *disp)
+{
+	struct dsi_display *display = disp;
+	int rc = 0;
+	struct msm_drm_notifier notifier_data;
+	int blank;
+
+	if (!display || !display->panel) {
+		pr_err("invalid display/panel\n");
+		return -EINVAL;
+	}
+
+	switch (power_mode) {
+	case SDE_MODE_DPMS_LP1:
+	case SDE_MODE_DPMS_LP2:
+		switch(get_oppo_display_scene()) {
+			break;
+		case OPPO_DISPLAY_NORMAL_SCENE:
+		case OPPO_DISPLAY_NORMAL_HBM_SCENE:
+			rc = dsi_panel_set_lp1(display->panel);
+			rc = dsi_panel_set_lp2(display->panel);
+			set_oppo_display_scene(OPPO_DISPLAY_AOD_SCENE);
+			break;
+		case OPPO_DISPLAY_AOD_HBM_SCENE:
+			blank = MSM_DRM_BLANK_POWERDOWN;
+			notifier_data.data = &blank;
+			notifier_data.id = 0;
+
+			msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK,
+						    &notifier_data);
+
+			/* Skip aod off if fingerprintpress exist */
+			if (!sde_connector_get_fppress_mode(connector)) {
+				mutex_lock(&display->panel->panel_lock);
+				rc = dsi_panel_tx_cmd_set(display->panel, DSI_CMD_AOD_HBM_OFF);
+				mutex_unlock(&display->panel->panel_lock);
+				set_oppo_display_scene(OPPO_DISPLAY_AOD_SCENE);
+			}
+
+			msm_drm_notifier_call_chain(MSM_DRM_EVENT_BLANK,
+						    &notifier_data);
+			break;
+		case OPPO_DISPLAY_AOD_SCENE:
+		default:
+			break;
+		}
+		set_oppo_display_power_status(OPPO_DISPLAY_POWER_DOZE_SUSPEND);
+		break;
+	case SDE_MODE_DPMS_ON:
+		blank = MSM_DRM_BLANK_UNBLANK;
+		notifier_data.data = &blank;
+		notifier_data.id = 0;
+		msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK,
+					   &notifier_data);
+		if(OPPO_DISPLAY_AOD_SCENE == get_oppo_display_scene()) {
+			if (sde_connector_get_fp_mode(connector)) {
+				mutex_lock(&display->panel->panel_lock);
+				rc = dsi_panel_tx_cmd_set(display->panel, DSI_CMD_AOD_HBM_ON);
+				mutex_unlock(&display->panel->panel_lock);
+				set_oppo_display_scene(OPPO_DISPLAY_AOD_HBM_SCENE);
+			} else {
+				rc = dsi_panel_set_nolp(display->panel);
+				set_oppo_display_scene(OPPO_DISPLAY_NORMAL_SCENE);
+			}
+		}
+		oppo_dsi_update_seed_mode();
+		set_oppo_display_power_status(OPPO_DISPLAY_POWER_ON);
+		msm_drm_notifier_call_chain(MSM_DRM_EVENT_BLANK,
+					    &notifier_data);
+		break;
+	case SDE_MODE_DPMS_OFF:
+		break;
+	default:
+		break;
+	}
+	return rc;
+}
+#endif /*VENDOR_EDIT*/
 
 static ssize_t debugfs_dump_info_read(struct file *file,
 				      char __user *user_buf,
@@ -1309,8 +1533,14 @@ static ssize_t debugfs_esd_trigger_check(struct file *file,
 		rc = -EINVAL;
 		goto error;
 	}
-
+#ifndef VENDO_EDIT
 	buf[user_len] = '\0'; /* terminate the string */
+#else
+/* Gou shengjun@PSW.MM.Display.Lcd.Stability,2018/6/14
+ * change for solve coverity issue
+*/
+	buf[user_len-1] = '\0'; /* terminate the string */
+#endif
 
 	if (kstrtouint(buf, 10, &esd_trigger)) {
 		rc = -EINVAL;
@@ -4118,10 +4348,20 @@ static int dsi_display_dynamic_clk_configure_cmd(struct dsi_display *display,
 {
 	int rc = 0;
 
+#ifdef VENDOR_EDIT
 	if (clk_rate <= 0) {
 		pr_err("%s: bitrate should be greater than 0\n", __func__);
 		return -EINVAL;
 	}
+#else
+/* Gou shengjun@PSW.MM.Display.Lcd.Stability, 2018-05-31
+ * change for limit clk min value.
+*/
+	if (clk_rate <= 1040000000) {
+		pr_err("%s: bitrate should be greater than 1040000000\n", __func__);
+		return -EINVAL;
+	}
+#endif /* VENDOR_EDIT */
 
 	if (clk_rate == display->cached_clk_rate) {
 		pr_info("%s: ignore duplicated DSI clk setting\n", __func__);
@@ -4783,7 +5023,14 @@ static ssize_t sysfs_dynamic_dsi_clk_write(struct device *dev,
 	mutex_unlock(&dsi_display_clk_mutex);
 	mutex_unlock(&display->display_lock);
 
+#ifndef VENDOR_EDIT
 	return rc;
+#else
+/* Gou shengjun@PSW.MM.Display.Lcd.Stability, 2018-05-31
+ * change for limit clk min value.
+*/
+	return count;
+#endif /* VENDOR_EDIT */
 
 }
 
@@ -4840,9 +5087,21 @@ static int dsi_display_sysfs_init(struct dsi_display *display)
 	int rc = 0;
 	struct device *dev = &display->pdev->dev;
 
+#ifndef VENDOR_EDIT
+/* hujie@PSW.MM.Display.Lcd.Stability, 2019-06-15, add for Mipi clock link*/
 	if (display->panel->panel_mode == DSI_OP_CMD_MODE)
 		rc = sysfs_create_group(&dev->kobj,
 			&dynamic_dsi_clock_fs_attrs_group);
+
+#else
+	if (display->panel->panel_mode == DSI_OP_CMD_MODE) {
+		rc = sysfs_create_group(&dev->kobj,
+			&dynamic_dsi_clock_fs_attrs_group);
+
+		rc = sysfs_create_link(oppo_display_kobj,
+					   &dev->kobj, "panel");
+	}
+#endif
 
 	return rc;
 
@@ -4901,6 +5160,21 @@ static int dsi_display_bind(struct device *dev,
 
 	if (!display->disp_node)
 		return 0;
+
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Stability,2018/06/05
+ * Add for save select panel and give different feature
+*/
+	if(0 != set_oppo_display_vendor(display->name)) {
+		pr_err("maybe send a null point to oppo display manager\n");
+	}
+
+	/* Add for SUA feature request */
+	if(is_silence_reboot()) {
+		lcd_closebl_flag = 1;
+		lcd_closebl_flag_fp = 1;
+	}
+#endif /*VENDOR_EDIT*/
 
 	mutex_lock(&display->display_lock);
 
@@ -5165,7 +5439,11 @@ static struct platform_driver dsi_display_driver = {
 static int dsi_display_init(struct dsi_display *display)
 {
 	int rc = 0;
-	 struct platform_device *pdev = display->pdev;
+	struct platform_device *pdev = display->pdev;
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Machine, 2019/02/11,add for mm kevent fb. */
+//	unsigned char payload[100] = "";
+#endif /*VENDOR_EDIT*/
 
 	mutex_init(&display->display_lock);
 
@@ -5176,8 +5454,18 @@ static int dsi_display_init(struct dsi_display *display)
 	}
 
 	rc = component_add(&pdev->dev, &dsi_display_comp_ops);
+
+#ifndef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Machine, 2019/02/11,add for mm kevent fb. */
 	if (rc)
 		pr_err("component add failed, rc=%d\n", rc);
+#else
+	if (rc) {
+		pr_err("component add failed, rc=%d\n", rc);
+		//scnprintf(payload, sizeof(payload), "EventID@@%d$$component add error panel match fault rc=%d",OPPO_MM_DIRVER_FB_EVENT_ID_PANEL_MATCH_FAULT,rc);
+		//upload_mm_kevent_fb_data(OPPO_MM_DIRVER_FB_EVENT_MODULE_DISPLAY,payload);
+	}
+#endif /*VENDOR_EDIT*/
 
 	pr_debug("component add success: %s\n", display->name);
 end:
@@ -5294,6 +5582,16 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 	dsi_display_parse_cmdline_topology(display, index);
 
 	platform_set_drvdata(pdev, display);
+
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.Lcd.Stability, 2018-05-31
+ * add for drm notifier for display connect
+*/
+	if (!strcmp(dsi_type, "primary"))
+			primary_display = display;
+		else
+			secondary_display = display;
+#endif /* VENDOR_EDIT */
 
 	/* initialize display in firmware callback */
 	if (!firm_req) {
@@ -7249,6 +7547,12 @@ int dsi_display_enable(struct dsi_display *display)
 
 		display->panel->panel_initialized = true;
 		pr_debug("cont splash enabled, display enable not required\n");
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Stability,2018/4/28
+ * when continous splash enabled, we should set power mode to OPPO_DISPLAY_POWER_ON here
+*/
+		set_oppo_display_power_status(OPPO_DISPLAY_POWER_ON);
+#endif
 		return 0;
 	}
 
@@ -7357,6 +7661,12 @@ int dsi_display_pre_disable(struct dsi_display *display)
 
 	mutex_lock(&display->display_lock);
 
+#ifdef VENDOR_EDIT
+	/*Mark.Yao@PSW.MM.Display.LCD.Stable,2018-11-26 fix race on backlight and power change */
+	display->panel->need_power_on_backlight = false;
+	/*Mark.Yao@PSW.MM.Display.LCD.Stable,2018-10-25 fix ffl dsi abnormal on esd scene */
+	oppo_stop_ffl_thread();
+#endif /* VENDOR_EDIT */
 	/* enable the clk vote for CMD mode panels */
 	if (display->config.panel_mode == DSI_OP_CMD_MODE)
 		dsi_display_clk_ctrl(display->dsi_clk_handle,
@@ -7374,6 +7684,13 @@ int dsi_display_pre_disable(struct dsi_display *display)
 int dsi_display_disable(struct dsi_display *display)
 {
 	int rc = 0;
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Stability,2018/4/13
+ * Add a notify for when disable display
+*/
+	int blank;
+	struct msm_drm_notifier notifier_data;
+#endif
 
 	if (!display) {
 		pr_err("Invalid params\n");
@@ -7381,6 +7698,17 @@ int dsi_display_disable(struct dsi_display *display)
 	}
 
 	SDE_EVT32(SDE_EVTLOG_FUNC_ENTRY);
+
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Stability,2018/4/13
+ * Add a notify for when disable display
+*/
+	blank = MSM_DRM_BLANK_POWERDOWN;
+	notifier_data.data = &blank;
+	notifier_data.id = 0;
+	msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK,
+					&notifier_data);
+#endif
 	mutex_lock(&display->display_lock);
 
 	rc = dsi_display_wake_up(display);
@@ -7410,6 +7738,15 @@ int dsi_display_disable(struct dsi_display *display)
 
 	mutex_unlock(&display->display_lock);
 	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
+
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Stability,2018/4/13
+ * Add a notify for when disable display
+*/
+	set_oppo_display_scene(OPPO_DISPLAY_NORMAL_SCENE);
+	msm_drm_notifier_call_chain(MSM_DRM_EVENT_BLANK,
+					&notifier_data);
+#endif
 	return rc;
 }
 
@@ -7497,6 +7834,16 @@ int dsi_display_unprepare(struct dsi_display *display)
 	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
 	return rc;
 }
+
+#ifdef VENDOR_EDIT
+/* Gou shengjun@PSW.MM.Display.LCD.Stability,2018/4/28
+ * Add for support aod,hbm,seed
+*/
+struct dsi_display *get_main_display(void) {
+		return primary_display;
+}
+EXPORT_SYMBOL(get_main_display);
+#endif
 
 static int __init dsi_display_register(void)
 {

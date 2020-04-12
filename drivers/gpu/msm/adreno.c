@@ -3341,6 +3341,14 @@ int adreno_gmu_fenced_write(struct adreno_device *adreno_dev,
 		return 0;
 
 	for (i = 0; i < GMU_CORE_LONG_WAKEUP_RETRY_LIMIT; i++) {
+#ifdef VENDOR_EDIT
+//Xiaori.Yuan@MM.Display.Service.Feature, 2019/08/02, Add for 2187714 kgsl kgsl-3d0: Timed out waiting 2000 usecs to write fenced register 0x8a3
+		/*
+		* Make sure the previous register write is posted before
+		* checking the fence status
+		*/
+		mb();
+#endif /* VENDOR_EDIT */
 		adreno_read_gmureg(adreno_dev, ADRENO_REG_GMU_AHB_FENCE_STATUS,
 			&status);
 

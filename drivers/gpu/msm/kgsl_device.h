@@ -535,7 +535,7 @@ struct kgsl_snapshot {
 	unsigned int sysfs_read;
 	bool first_read;
 	bool gmu_fault;
-	bool recovered;
+	bool recovered;	
 };
 
 /**

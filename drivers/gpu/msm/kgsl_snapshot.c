@@ -1058,6 +1058,7 @@ static SNAPSHOT_ATTR(snapshot_crashdumper, 0644, snapshot_crashdumper_show,
 static SNAPSHOT_ATTR(snapshot_legacy, 0644, snapshot_legacy_show,
 	snapshot_legacy_store);
 
+
 static ssize_t snapshot_sysfs_show(struct kobject *kobj,
 	struct attribute *attr, char *buf)
 {
@@ -1137,6 +1138,7 @@ int kgsl_device_snapshot_init(struct kgsl_device *device)
 	device->snapshot = NULL;
 	device->snapshot_faultcount = 0;
 	device->force_panic = 0;
+
 	device->snapshot_crashdumper = 1;
 	device->snapshot_legacy = 0;
 

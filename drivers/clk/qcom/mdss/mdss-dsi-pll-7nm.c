@@ -1060,13 +1060,12 @@ static void vco_7nm_unprepare(struct clk_hw *hw)
 		return;
 	}
 
+	pll->cached_cfg0 = MDSS_PLL_REG_R(pll->phy_base, PHY_CMN_CLK_CFG0);
 	/*
 	 * During unprepare in continuous splash use case we want driver
 	 * to pick all dividers instead of retaining bootloader configurations.
 	 */
 	if (!pll->handoff_resources) {
-		pll->cached_cfg0 = MDSS_PLL_REG_R(pll->phy_base,
-							PHY_CMN_CLK_CFG0);
 		pll->cached_outdiv = MDSS_PLL_REG_R(pll->pll_base,
 							PLL_PLL_OUTDIV_RATE);
 		pr_debug("cfg0=%d,cfg1=%d, outdiv=%d\n", pll->cached_cfg0,
@@ -1082,9 +1081,11 @@ static void vco_7nm_unprepare(struct clk_hw *hw)
 	 * does not change.For such usecases, we need to ensure that the cached
 	 * value is programmed prior to PLL being locked
 	 */
-	if (pll->handoff_resources)
+	if (pll->handoff_resources) {
 		pll->cached_cfg1 = MDSS_PLL_REG_R(pll->phy_base,
 							PHY_CMN_CLK_CFG1);
+		pll->set_cfg0_flag = 1;
+	}
 
 	dsi_pll_disable(vco);
 	mdss_pll_resource_enable(pll, false);
@@ -1128,6 +1129,12 @@ static int vco_7nm_prepare(struct clk_hw *hw)
 					pll->cached_cfg0);
 		MDSS_PLL_REG_W(pll->pll_base, PLL_PLL_OUTDIV_RATE,
 					pll->cached_outdiv);
+	}
+
+	if (pll->set_cfg0_flag) {
+		MDSS_PLL_REG_W(pll->phy_base, PHY_CMN_CLK_CFG0,
+					pll->cached_cfg0);
+		pll->set_cfg0_flag = 0;
 	}
 
 	rc = dsi_pll_enable(vco);

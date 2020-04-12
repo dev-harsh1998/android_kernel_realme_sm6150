@@ -147,6 +147,7 @@ struct mdss_pll_resources {
 	 */
 	bool		handoff_resources;
 
+	bool		set_cfg0_flag;
 	/*
 	 * caching the pll trim codes in the case of dynamic refresh
 	 */

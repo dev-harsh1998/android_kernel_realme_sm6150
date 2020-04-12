@@ -1111,6 +1111,7 @@ static void vco_10nm_unprepare(struct clk_hw *hw)
 		return;
 	}
 
+	pll->cached_cfg0 = MDSS_PLL_REG_R(pll->phy_base, PHY_CMN_CLK_CFG0);
 	/*
 	 * During unprepare in continuous splash use case we want driver
 	 * to pick all dividers instead of retaining bootloader configurations.
@@ -1118,8 +1119,6 @@ static void vco_10nm_unprepare(struct clk_hw *hw)
 	 * first suspend/resume.
 	 */
 	if (!pll->handoff_resources || pll->dfps_trigger) {
-		pll->cached_cfg0 = MDSS_PLL_REG_R(pll->phy_base,
-						  PHY_CMN_CLK_CFG0);
 		pll->cached_outdiv = MDSS_PLL_REG_R(pll->pll_base,
 						    PLL_PLL_OUTDIV_RATE);
 		pr_debug("cfg0=%d,cfg1=%d, outdiv=%d\n", pll->cached_cfg0,
@@ -1142,6 +1141,7 @@ static void vco_10nm_unprepare(struct clk_hw *hw)
 			pll->slave->cached_cfg1 =
 				MDSS_PLL_REG_R(pll->slave->phy_base,
 					       PHY_CMN_CLK_CFG1);
+		pll->set_cfg0_flag = 1;
 	}
 
 	dsi_pll_disable(vco);
@@ -1190,6 +1190,16 @@ static int vco_10nm_prepare(struct clk_hw *hw)
 		MDSS_PLL_REG_W(pll->pll_base, PLL_PLL_OUTDIV_RATE,
 					pll->cached_outdiv);
 	}
+
+	if (pll->set_cfg0_flag) {
+		MDSS_PLL_REG_W(pll->phy_base, PHY_CMN_CLK_CFG0,
+				pll->cached_cfg0);
+		if (pll->slave)
+			MDSS_PLL_REG_W(pll->slave->phy_base, PHY_CMN_CLK_CFG0,
+					pll->cached_cfg0);
+		pll->set_cfg0_flag = 0;
+	}
+
 	MDSS_PLL_ATRACE_BEGIN("pll_lock");
 	trace_mdss_pll_lock_start((u64)pll->vco_cached_rate,
 			pll->vco_current_rate,

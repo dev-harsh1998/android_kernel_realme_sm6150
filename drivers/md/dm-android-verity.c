@@ -725,6 +725,14 @@ static int android_verity_ctr(struct dm_target *ti, unsigned argc, char **argv)
 
 	err = extract_metadata(dev, &fec, &metadata, &verity_enabled);
 
+//#ifdef VENDOR_EDIT
+//#Haiping.Zhong@PSW.AD.BuildConfig.BaseConfig.0, 2019/01/08, Add for build root disable dm verity
+#ifdef OPPO_BUILD_ROOT_DISABLE_DM_VERITY
+    DMWARN("Allow invalid metadata when build root");
+    return create_linear_device(ti, dev, target_device);
+#endif
+//#endif /* VENDOR_EDIT */
+
 	if (err) {
 		/* Allow invalid metadata when the device is unlocked */
 		if (is_unlocked()) {

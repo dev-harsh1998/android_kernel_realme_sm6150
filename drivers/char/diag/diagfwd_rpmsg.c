@@ -444,9 +444,6 @@ static void diag_rpmsg_read_work_fn(struct work_struct *work)
 							read_work);
 	unsigned long flags;
 
-	if (!rpmsg_info)
-		return;
-
 	spin_lock_irqsave(&driver->rpmsginfo_lock[PERI_RPMSG], flags);
 
 	if (!atomic_read(&rpmsg_info->opened)) {
@@ -512,9 +509,6 @@ static void diag_rpmsg_late_init_work_fn(struct work_struct *work)
 							late_init_work);
 	unsigned long flags;
 
-	if (!rpmsg_info)
-		return;
-
 	spin_lock_irqsave(&driver->rpmsginfo_lock[PERI_RPMSG], flags);
 	if (!rpmsg_info->hdl) {
 		spin_unlock_irqrestore(&driver->rpmsginfo_lock[PERI_RPMSG],
@@ -535,9 +529,6 @@ static void diag_rpmsg_open_work_fn(struct work_struct *work)
 							struct diag_rpmsg_info,
 							open_work);
 	unsigned long flags;
-
-	if (!rpmsg_info)
-		return;
 
 	spin_lock_irqsave(&driver->rpmsginfo_lock[PERI_RPMSG], flags);
 	if (!rpmsg_info->inited) {
@@ -561,9 +552,6 @@ static void diag_rpmsg_close_work_fn(struct work_struct *work)
 							struct diag_rpmsg_info,
 							close_work);
 	unsigned long flags;
-
-	if (!rpmsg_info)
-		return;
 
 	spin_lock_irqsave(&driver->rpmsginfo_lock[PERI_RPMSG], flags);
 	if (!rpmsg_info->inited || !rpmsg_info->hdl) {

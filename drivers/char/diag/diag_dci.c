@@ -1965,6 +1965,7 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	req_len -= sizeof(struct dci_pkt_req_t);
 	req_buf = temp; /* Start of the Request */
 	header = (struct diag_pkt_header_t *)temp;
+
 	read_len += sizeof(struct diag_pkt_header_t);
 	if (read_len >= DCI_REQ_BUF_SIZE) {
 		pr_err("diag: dci: In %s, invalid read_len: %d\n", __func__,

@@ -3740,11 +3740,15 @@ static int gpiolib_seq_show(struct seq_file *s, void *v)
 		seq_printf(s, ", can sleep");
 	seq_printf(s, ":\n");
 
+	if (chip->label && (strcmp("62b40000.lpi_pinctrl", chip->label) == 0))
+		goto end;
+
 	if (chip->dbg_show)
 		chip->dbg_show(s, chip);
 	else
 		gpiolib_dbg_show(s, gdev);
 
+end:
 	return 0;
 }
 

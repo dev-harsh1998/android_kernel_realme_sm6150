@@ -305,9 +305,14 @@
 };
 
 &qupv3_se7_i2c {
-	qcom,i2c-touch-active="st,fts";
+//#ifndef VENDOR_EDIT
+//ZhongWenjie@BSP.group 2019-03-29 add for enable tp function
+//	qcom,i2c-touch-active="st,fts";
+//#endif
 	status = "ok";
-
+//#ifndef VENDOR_EDIT
+//ZhongWenjie@BSP.group 2019-03-29 add for enable tp function
+/*
 	st_fts@49 {
 		compatible = "st,fts";
 		reg = <0x49>;
@@ -352,6 +357,33 @@
 		synaptics,reset-on-state = <0>;
 		synaptics,reset-active-ms = <20>;
 	};
+*/
+//#else
+	synaptics7150@20 {
+		compatible = "synaptics-s3706";
+		reg = <0x20>;
+		chip-name = "S3706";
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <9 0x00>;
+		vdd_2v8-supply = <&pm6150l_l7>;
+		vcc_1v8-supply = <&pm6150_l12>;
+		irq-gpio = <&tlmm 9 0x2008>;
+		reset-gpio = <&tlmm 8 0x1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+
+		touchpanel,max-num-support = <10>;
+		touchpanel,tx-rx-num = <16 33>;
+		touchpanel,panel-coords = <1080 2340>;
+		touchpanel,display-coords = <1080 2340>;
+
+		//external_touch_support;
+
+		touchpanel,button-type = <4>;
+		touchpanel.button-TRx = <0 0>;
+	};
+//#endif
 };
 
 &pm6150_qg {
@@ -387,8 +419,141 @@
 	qcom,thermal-mitigation = <4200000 3500000 3000000
 			2500000 2000000 1500000 1000000 500000>;
 	dpdm-supply = <&qusb_phy0>;
+<<<<<<< HEAD
 	qcom,charger-temp-max = <800>;
 	qcom,smb-temp-max = <800>;
+=======
+
+//#ifdef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-04-08  for charge */
+	qcom,usb-icl-ua = <2000000>;
+	qcom,fcc-max-ua = <2000000>;
+	//qcom,fv-max-uv = <4373000>;
+	qcom,hvdcp-disable;
+//	qcom,pm660chg-vadc = <&pm660_vadc>;//chargID
+//	qcom,pm660usbtemp-vadc = <&pm660_vadc>;//usb temp
+	//qcom,otg-cl-ua = <2000000>;
+	qcom,float-option = <1>;
+
+	//for oppo chg framework:
+	qcom,input_current_charger_ma = <2000>;
+	qcom,input_current_usb_ma = <500>;
+
+	qcom,input_current_led_ma = <1200>;
+
+	qcom,input_current_camera_ma = <1200>;
+	//qcom,input_current_led_ma_overtemp = <900>;
+	qcom,overtemp_bat_decidegc = <350>;
+	qcom,iterm_disabled = <0>;
+	qcom,iterm_ma = <170>;
+	qcom,recharge-mv = <100>;
+	qcom,batt_capacity_mah = <3415>;
+
+	qcom,removed_bat_decidegc = <190>;  /*<-19C*/
+
+	qcom,cold_bat_decidegc = <30>;  /*-3C~0C*/
+	qcom,temp_cold_vfloat_mv = <3980>;
+	qcom,temp_cold_fastchg_current_ma = <330>;
+
+	qcom,little_cold_bat_decidegc = <0>;	/*0C~5C*/
+	qcom,temp_little_cold_vfloat_mv = <4373>;
+	qcom,temp_little_cold_fastchg_current_ma = <510>;
+
+	qcom,cool_bat_decidegc = <50>;	/*5C~12C*/
+	qcom,temp_cool_vfloat_mv = <4373>;
+	qcom,temp_cool_fastchg_current_ma_high = <850>;
+	qcom,temp_cool_fastchg_current_ma_low = <510>;
+
+	qcom,little_cool_bat_decidegc = <120>;	/*12C~16C*/
+	qcom,temp_little_cool_vfloat_mv = <4373>;
+	qcom,temp_little_cool_fastchg_current_ma = <1530>;
+
+	qcom,normal_bat_decidegc = <160>;	/*16C~45C*/
+	qcom,temp_normal_fastchg_current_ma = <2000>;
+	qcom,temp_normal_vfloat_mv = <4373>;
+
+	qcom,warm_bat_decidegc = <480>;		/*48C~53C*/ /*8pin Bat Vooc project need add 3 degree C*/
+	qcom,temp_warm_vfloat_mv = <4080>;
+	qcom,temp_warm_fastchg_current_ma = <850>;
+
+	qcom,hot_bat_decidegc = <530>;
+
+	qcom,non_standard_vfloat_mv = <3980>;
+	qcom,non_standard_fastchg_current_ma = <512>;
+
+	qcom,short_c_bat_cv_mv = <4330>;
+	qcom,short_c_bat_vfloat_mv = <3800>;
+	qcom,short_c_bat_fastchg_current_ma = <512>;
+
+	qcom,cold_vfloat_sw_limit = <3930>;
+	qcom,little_cold_vfloat_sw_limit = <4320>;
+	qcom,cool_vfloat_sw_limit = <4320>;
+	qcom,little_cool_vfloat_sw_limit = <4320>;
+	qcom,normal_vfloat_sw_limit = <4320>;
+	qcom,warm_vfloat_sw_limit = <4030>;
+	qcom,non_standard_vfloat_sw_limit = <3930>;
+	qcom,short_c_bat_vfloat_sw_limit = <3750>;
+
+	qcom,max_chg_time_sec = <36000>;
+	qcom,charger_hv_thr = <5800>;
+	qcom,charger_lv_thr = <3400>;
+	qcom,vbatt_full_thr = <4400>;
+	qcom,vbatt_hv_thr = <4500>;
+	qcom,vfloat_step_mv = <8>;
+	qcom,non_standard_vfloat_over_sw_limit = <3990>;
+	qcom,cold_vfloat_over_sw_limit = <3990>;
+	qcom,little_cold_vfloat_over_sw_limit = <4385>;
+	qcom,cool_vfloat_over_sw_limit = <4385>;
+	qcom,little_cool_vfloat_over_sw_limit = <4385>;
+	qcom,normal_vfloat_over_sw_limit = <4385>;
+	qcom,warm_vfloat_over_sw_limit = <4090>;
+
+	qcom,vbatt_power_off = <3300>;
+	qcom,vbatt_soc_1 = <3410>;
+	qcom,vooc_project = <1>;
+	qcom,vbatt_num = <1>;
+
+	qcom,normal_vterm_hw_inc = <18>;
+	qcom,non_normal_vterm_hw_inc = <18>;
+	
+	qcom,overchg_normal_fastchg_ma = <700>;/*16C~35c*/
+	qcom,overchg_temp_warm_decidegc = <350>;
+	qcom,overchg_warm_fastchg_ma = <750>;/*35C~40c*/			
+	qcom,overchg_temp_high_decidegc = <400>;
+	
+	qcom,overchg_normal_vfloat_sw_limit = <4450>;
+	qcom,overchg_temp_normal_vfloat_mv = <4500>;
+	qcom,overchg_normal_vfloat_over_sw_limit = <4500>;
+	
+	qcom,default_iterm_ma = <170>;			
+	qcom,default_temp_normal_fastchg_current_ma = <2000>;			
+	qcom,default_normal_vfloat_sw_limit = <4320>;
+	qcom,default_temp_normal_vfloat_mv = <4373>;
+	qcom,default_normal_vfloat_over_sw_limit = <4385>;
+	
+	///qcom,offset_temp = <30>;
+	//for control:
+	//qcom,suspend_after_full;
+	qcom,check_batt_full_by_sw;
+	qcom,external_gauge;
+	qcom,chg_ctrl_by_lcd;
+	qcom,chg_ctrl_by_camera;
+	qcom,sw_vfloat_over_protect_enable;
+
+	qcom,chargerid_switch-gpio = <&pm6150_gpios 1 0x00>;
+	qcom,ship-gpio = <&tlmm 11 0x00>;
+	//qcom,shortc-gpio = <&tlmm 43 0x00>;
+	//qcom,ccdetect-gpio = <&tlmm 40 0x00>;
+	//qcom,dischg-gpio = <&pm660l_gpios 7 0x00>;
+	pinctrl-names = "chargerid_switch_active", "chargerid_switch_sleep", "chargerid_switch_default",
+			"ship_active", "ship_sleep";
+	pinctrl-0 = <&chargerid_switch_active>;
+	pinctrl-1 = <&chargerid_switch_sleep>;
+	pinctrl-2 = <&chargerid_switch_default>;
+	pinctrl-3 = <&ship_active>;
+	pinctrl-4 = <&ship_sleep>;
+//#endif
+>>>>>>> 7ab5247... [SDM7150_P][PSW.BSP.CHG][1/2][BugId:无][无风险][无依赖][自然集成]{充电基础功能}
 };
 
 &pm6150_gpios {

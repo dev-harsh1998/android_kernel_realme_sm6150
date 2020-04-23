@@ -44,6 +44,7 @@
 				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR>;
 				qcom,pull-up;
 				linux,code = <KEY_POWER>;
+				qcom,support-reset = <0>;
 			};
 
 			qcom,pon_2 {
@@ -184,7 +185,6 @@
 				label = "v_i_parallel_vbat_vdata";
 				qcom,pre-scaling = <1 1>;
 			};
-
 		};
 
 		pm6150_adc_tm: adc_tm@3500 {
@@ -482,6 +482,9 @@
 			assigned-clock-rates = <19200000>;
 		};
 
+//#ifndef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-04-08  for charge */
+/*
 		pm6150_gpios: pinctrl@c000 {
 			compatible = "qcom,spmi-gpio";
 			reg = <0xc000 0xa00>;
@@ -498,6 +501,28 @@
 			#gpio-cells = <2>;
 			qcom,gpios-disallowed = <5 6 9 10>;
 		};
+*/
+//#else
+		pm6150_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0xa00>;
+			interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
+					<0x0 0xc1 0 IRQ_TYPE_NONE>,
+					<0x0 0xc2 0 IRQ_TYPE_NONE>,
+					<0x0 0xc3 0 IRQ_TYPE_NONE>,
+					<0x0 0xc6 0 IRQ_TYPE_NONE>,
+					<0x0 0xc7 0 IRQ_TYPE_NONE>,
+					<0x0 0xc8 0 IRQ_TYPE_NONE>,
+					<0x0 0xc9 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm6150_gpio1", "pm6150_gpio2",
+					"pm6150_gpio3", "pm6150_gpio4",
+					"pm6150_gpio7", "pm6150_gpio8",
+					"pm6150_gpio9", "pm6150_gpio10";
+			gpio-controller;
+			#gpio-cells = <2>;
+			qcom,gpios-disallowed = <5 6>;
+		};
+//#endif
 
 		pm6150_rtc: qcom,pm6150_rtc {
 			compatible = "qcom,qpnp-rtc";

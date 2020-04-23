@@ -1,0 +1,88 @@
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&pm6150_vadc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pm6150_adc_default>;
+
+	board_id {
+		reg = <ADC_GPIO2>;
+		label = "board_id_vdata";
+		qcom,ratiometric;
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&soc {
+	devinfo {
+		compatible = "oppo-devinfo";
+		region = "china";
+
+		io-channels= <&pm6150_vadc ADC_GPIO2>;
+		io-channel-names= "vph_pwr_voltage_sub";
+
+		main-sub {
+			compatible = "hw-match, main-sub";
+			use_pmic_adc;
+			adc_ranges = <0 200
+						250 400
+						500 650
+						850 1000
+						1100 1250
+						1300 1450
+						1650 1850>;
+			aboard-patterns = <6 6 6 0 6>;
+
+			/*main board*/
+			hw-combs = <8 31 11 13 54>;
+		};
+
+		device_0 {
+			compatible = "hw, devices, example";
+			label = "charger";
+			hw-id0 = <&tlmm 11 0x00>;
+			hw-id1 = <&tlmm 12 0x00>;
+			hw-combs = <0 2 3>;
+			hw-names = "qp", "hh", "ad";
+		};
+	};
+
+	oppo_rf_cable {
+		compatible = "oppo,rf_cable";
+		interrupt-parent = <&tlmm>;
+		rf_cable_0_support;
+		rf,cable0-gpio = <&tlmm 88 0>;
+		rf,cable-support-timer = <0>;
+		pinctrl-names = "rf_cable_active";
+		pinctrl-0 = <&rf_cable0_active>;
+	};
+
+	gpio_keys {
+		/delete-property/ pinctrl-0;
+
+		pinctrl-0 = <&key_vol_up_default &key_vol_down_default>;
+
+		vol_down {
+			label = "volume_down";
+			gpios = <&tlmm 64 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEDOWN>;
+			linux,can-disable;
+			debounce-interval = <15>;
+			gpio-key,wakeup;
+		};
+	};
+};
+
+&wdog {
+	qcom,bark-time = <20000>;
+};

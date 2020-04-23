@@ -1609,6 +1609,24 @@
 			};
 		};
 
+		//#ifdef VENDOR_EDIT
+		//ZhongWenjie@BSP.group 2019-03-29 add for enable tp function
+		pmx_ts_int_active {
+			ts_int_active: ts_int_active {
+				mux {
+					pins = "gpio9";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio9";
+					drive-strength = <8>;
+					bias-pull-up;
+				};
+			};
+		};
+		//#endif
+
 		pmx_ts_int_suspend {
 			ts_int_suspend: ts_int_suspend {
 				mux {
@@ -1623,6 +1641,24 @@
 				};
 			};
 		};
+
+		//#ifdef VENDOR_EDIT
+		//ZhongWenjie@BSP.group 2019-03-29 add for enable tp function
+		pmx_ts_reset_active {
+			ts_reset_active: ts_reset_active {
+				mux {
+					pins = "gpio8";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio8";
+					drive-strength = <8>;
+					bias-disable;
+				};
+			};
+		};
+		//#endif
 
 		pmx_ts_reset_suspend {
 			ts_reset_suspend: ts_reset_suspend {
@@ -1653,6 +1689,115 @@
 				};
 			};
 		};
+
+//#ifdef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-04-08  for charge */
+		charging_reset_active: charging_reset_active {
+			mux {
+				pins = "gpio29";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio29";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		charging_reset_sleep: charging_reset_sleep {
+			mux {
+				pins = "gpio29";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio29";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		charging_clock_active: charging_clock_active {
+			mux {
+				pins = "gpio21";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio21";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		charging_clock_sleep: charging_clock_sleep {
+			mux {
+				pins = "gpio21";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio21";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		charging_data_active: charging_data_active {
+			mux {
+				pins = "gpio26";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio26";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		charging_data_sleep: charging_data_sleep {
+			mux {
+				pins = "gpio26";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio26";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		ship_sleep: ship_sleep {
+			mux {
+				pins = "gpio11";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio11";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+
+		ship_active: ship_active {
+			mux {
+				pins = "gpio11";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio11";
+				drive-strength = <2>;
+				bias-pull-up;
+				output-high;
+			};
+		};
+//#endif
 	};
 };
 
@@ -1668,6 +1813,55 @@
 		};
 	};
 };
+
+//#ifdef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-04-08  for charge */
+&pm6150_gpios {
+	charging_switch1_active: charging_switch1_active {
+		pins = "gpio9";
+		function = "func1";
+		qcom,drive-strength = <2>;
+		power-source = <1>;
+		bias-pull-up;
+		output-high;
+	};
+
+	charging_switch1_sleep: charging_switch1_sleep {
+		pins = "gpio9";
+		function = "func1";
+		qcom,drive-strength = <2>;
+		power-source = <1>;
+		bias-pull-down;
+		output-low;
+	};
+
+	chargerid_switch_active: chargerid_switch_active {
+		pins = "gpio1";
+		function = "func1";
+		qcom,drive-strength = <2>;
+		power-source = <1>;
+		bias-pull-up;
+		output-high;
+	};
+
+	chargerid_switch_sleep: chargerid_switch_sleep {
+		pins = "gpio1";
+		function = "func1";
+		qcom,drive-strength = <2>;
+		power-source = <1>;
+		bias-pull-down;
+		output-low;
+	};
+
+	chargerid_switch_default: chargerid_switch_default {
+		pins = "gpio1";
+		function = "func1";
+		qcom,drive-strength = <2>;
+		power-source = <1>;
+		bias-disable;
+	};
+};
+//#endif
 
 &pm6150l_gpios {
 	disp_pins {

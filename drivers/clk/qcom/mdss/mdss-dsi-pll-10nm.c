@@ -1196,17 +1196,11 @@ static void vco_10nm_unprepare(struct clk_hw *hw)
 	 * Also handle use cases where dynamic refresh triggered before
 	 * first suspend/resume.
 	 */
-	if (!pll->handoff_resources || pll->dfps_trigger) {
-		pll->cached_cfg0 = MDSS_PLL_REG_R(pll->phy_base,
-						  PHY_CMN_CLK_CFG0);
-		pll->cached_outdiv = MDSS_PLL_REG_R(pll->pll_base,
-						    PLL_PLL_OUTDIV_RATE);
-		pr_debug("cfg0=%d,cfg1=%d, outdiv=%d\n", pll->cached_cfg0,
-			 pll->cached_cfg1, pll->cached_outdiv);
-
-		pll->vco_cached_rate = clk_get_rate(hw->clk);
-	}
-
+	pll->cached_cfg0 = MDSS_PLL_REG_R(pll->phy_base,
+	 				    PHY_CMN_CLK_CFG0);
+	pll->cached_outdiv = MDSS_PLL_REG_R(pll->pll_base,
+					    PLL_PLL_OUTDIV_RATE);
+	pll->vco_cached_rate = clk_get_rate(hw->clk);
 	/*
 	 * When continuous splash screen feature is enabled, we need to cache
 	 * the mux configuration for the pixel_clk_src mux clock. The clock

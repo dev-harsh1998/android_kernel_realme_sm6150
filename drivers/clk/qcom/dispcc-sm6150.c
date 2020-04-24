@@ -207,7 +207,12 @@ static struct clk_rcg2 disp_cc_mdss_byte0_clk_src = {
 };
 
 static const struct freq_tbl ftbl_disp_cc_mdss_dp_aux1_clk_src[] = {
+#ifndef VENDOR_EDIT
+/*Jie.Hu@PSW.MM.Display.Lcd.Stability, 2018-04-26,add for modify esc clk,which can make lpx great than 52ns*/
 	F(19200000, P_BI_TCXO, 1, 0, 0),
+#else
+	F(9600000, P_BI_TCXO, 2, 0, 0),
+#endif
 	{ }
 };
 

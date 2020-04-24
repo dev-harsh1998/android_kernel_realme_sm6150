@@ -108,3 +108,9 @@ obj-$(CONFIG_TOUCHSCREEN_ROHM_BU21023)	+= rohm_bu21023.o
 obj-$(CONFIG_TOUCHSCREEN_ST)		+= st/
 obj-$(CONFIG_TOUCHSCREEN_HIMAX_CHIPSET)	+= hxchipset/
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_TCM)	+= synaptics_tcm/
+#ifdef VENDOR_EDIT
+#ZhongWenjie@BSP.group 2019-03-29 add for enable tp function
+#bajrang.patidar@BSP.TP 2019-08-19 add for enable tp function
+obj-$(CONFIG_TOUCHPANEL_OPPO) += oppo_touchscreen/
+obj-$(CONFIG_TOUCHPANEL_OPPO) += touch.o
+#endif

@@ -1287,5 +1287,8 @@ config TOUCHSCREEN_SYNAPTICS_TCM
 	  If unsure, say N.
 
 source "drivers/input/touchscreen/synaptics_tcm/Kconfig"
-
+#ifdef VENDOR_EDIT
+#bajrang.patidar@BSP.TP 2019-08-19 add for enable tp function
+source "drivers/input/touchscreen/oppo_touchscreen/Kconfig"
+#endif
 endif

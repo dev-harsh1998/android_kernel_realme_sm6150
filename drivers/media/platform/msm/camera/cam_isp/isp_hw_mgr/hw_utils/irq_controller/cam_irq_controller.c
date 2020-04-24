@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -511,8 +511,8 @@ int cam_irq_controller_unsubscribe_irq(void *irq_controller,
 		}
 	}
 
+	priority = evt_handler->priority;
 	if (found) {
-		priority = evt_handler->priority;
 		for (i = 0; i < controller->num_registers; i++) {
 			irq_register = &controller->irq_register_arr[i];
 			irq_register->top_half_enable_mask[priority] &=
@@ -616,9 +616,17 @@ static void cam_irq_controller_th_processing(
 			rc = irq_bh_api->get_bh_payload_func(
 				evt_handler->bottom_half, &bh_cmd);
 			if (rc || !bh_cmd) {
-				CAM_ERR_RATE_LIMIT(CAM_ISP,
-					"No payload, IRQ handling frozen");
-				continue;
+#ifndef VENDOR_EDIT
+                /* jiangyi1@Cam.Drv 20190619 merge qcom patch for break long exposure snapshot */
+                CAM_ERR_RATE_LIMIT(CAM_ISP,
+                    "No payload, IRQ handling frozen");
+                continue;
+#else
+                CAM_ERR(CAM_ISP,
+                    "No payload, IRQ handling frozen");
+                continue;
+#endif
+
 			}
 		}
 

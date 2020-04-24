@@ -1052,20 +1052,64 @@ EXPORT_SYMBOL(mipi_dsi_dcs_set_tear_scanline);
  *
  * Return: 0 on success or a negative error code on failure.
  */
-int mipi_dsi_dcs_set_display_brightness(struct mipi_dsi_device *dsi,
-					u16 brightness)
-{
-	u8 payload[2] = { brightness & 0xff, brightness >> 8 };
-	ssize_t err;
+#ifdef VENDOR_EDIT
+	/*liping-m@PSW.MM.Display.LCD.Stability,2019/4/25,add for solve backlight issue*/
+	u32 flag_writ = 0;
+	EXPORT_SYMBOL(flag_writ);
 
-	err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
-				 payload, sizeof(payload));
-	if (err < 0)
-		return err;
+	/* Hujie@PSW.MM.Display.LCD.Stable,2019-07-16 Add for global hightlight mode */
+	//u8 readvalue = 0x00;
+	//EXPORT_SYMBOL(readvalue);
+#endif /*VENDOR_EDIT*/
 
-	return 0;
-}
-EXPORT_SYMBOL(mipi_dsi_dcs_set_display_brightness);
+		int mipi_dsi_dcs_set_display_brightness(struct mipi_dsi_device *dsi,
+							u16 brightness)
+		{
+#ifndef VENDOR_EDIT
+		//*liping-m@PSW.MM.Display.LCD.Stability,2018/8/30,add for solve backlight issue*/
+			u8 payload[2] = { brightness & 0xff, brightness >> 8 };
+#else /*VENDOR_EDIT*/
+			u8 payload[2];
+#endif /*VENDOR_EDIT*/
+			ssize_t err;
+
+#ifdef VENDOR_EDIT
+		/*liping-m@PSW.MM.Display.LCD.Stability,2019/4/25,add for solve backlight issue*/
+			u8	value;
+			u16 hbm_brightness;
+		if(brightness > 1023){
+			value = 0xE0;
+			hbm_brightness =  brightness - 1024;
+			payload[0] = hbm_brightness >> 8;
+			payload[1] = hbm_brightness & 0xff;
+			if(flag_writ == 0){
+				mipi_dsi_dcs_write(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY,
+						   &value, sizeof(value));
+				flag_writ = 2;
+			}
+			err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
+						 payload, sizeof(payload));
+			if (err < 0)
+				return err;
+		} else {
+			value = 0x20;
+			payload[0] =  brightness >> 8;
+			payload[1] =  brightness & 0xff;
+			if(flag_writ == 2 ){
+				mipi_dsi_dcs_write(dsi, MIPI_DCS_WRITE_CONTROL_DISPLAY,
+						   &value, sizeof(value));
+				flag_writ = 0;
+			}
+			err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
+						 payload, sizeof(payload));
+			if (err < 0)
+				return err;
+		}
+#endif /*VENDOR_EDIT*/
+			return 0;
+		}
+	EXPORT_SYMBOL(mipi_dsi_dcs_set_display_brightness);
+
 
 /**
  * mipi_dsi_dcs_get_display_brightness() - gets the current brightness value

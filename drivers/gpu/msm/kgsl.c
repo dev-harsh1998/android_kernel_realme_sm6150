@@ -75,6 +75,7 @@ MODULE_PARM_DESC(kgsl_mmu_type, "Type of MMU to be used for graphics");
 DEFINE_MUTEX(kgsl_mmu_sync);
 EXPORT_SYMBOL(kgsl_mmu_sync);
 
+
 /* List of dmabufs mapped */
 static LIST_HEAD(kgsl_dmabuf_list);
 static DEFINE_SPINLOCK(kgsl_dmabuf_lock);
@@ -854,6 +855,8 @@ static int kgsl_resume_device(struct kgsl_device *device, pm_message_t state)
 
 	KGSL_PWR_WARN(device, "resume start\n");
 	mutex_lock(&device->mutex);
+
+
 	ret = device->ftbl->resume_device(device, state);
 	if (ret) {
 		mutex_unlock(&device->mutex);
@@ -861,6 +864,10 @@ static int kgsl_resume_device(struct kgsl_device *device, pm_message_t state)
 	}
 
 	if (device->state == KGSL_STATE_SUSPEND) {
+#ifndef VENDOR_EDIT
+//Xiaori.Yuan@MM.Display.Service.Feature, 2019/08/17, Add for 2179667 kgsl fencetimeout
+		device->ftbl->resume_device(device);
+#endif /* VENDOR_EDIT */
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 	} else if (device->state != KGSL_STATE_INIT) {
 		/*

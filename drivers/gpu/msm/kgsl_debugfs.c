@@ -293,6 +293,27 @@ static const struct file_operations process_mem_fops = {
 	.release = process_mem_release,
 };
 
+#ifdef VENDOR_EDIT
+/* Wen.Luo@BSP.Kernel.Stability, 2019/04/26, Add for Process memory statistics */
+size_t get_gl_mem_by_pid(pid_t pid)
+{
+	int ret = 0;
+	struct kgsl_process_private *private = NULL;
+	private = kgsl_process_private_find(pid); //success will get
+
+	if (!private)
+		return ret;
+
+	spin_lock(&private->mem_lock);
+	ret = private->stats[0].cur;
+	spin_unlock(&private->mem_lock);
+
+	kgsl_process_private_put(private);
+	return ret;
+}
+EXPORT_SYMBOL(get_gl_mem_by_pid);
+#endif
+
 static int print_sparse_mem_entry(int id, void *ptr, void *data)
 {
 	struct seq_file *s = data;

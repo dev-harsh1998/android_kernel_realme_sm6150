@@ -34,6 +34,11 @@
 
 #define PP_TIMEOUT_MAX_TRIALS	4
 
+#ifdef VENDOR_EDIT
+/*Hujie@PSW.MM.Display.Lcd.Stability, 2019-09-01, add for runing SDE_RECOVERY_HARD_RESET when pingpong timeout many times*/
+#define PP_TIMEOUT_BAD_TRIALS   10
+#endif
+
 /*
  * Tearcheck sync start and continue thresholds are empirically found
  * based on common panels In the future, may want to allow panels to override
@@ -545,6 +550,12 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 
 	conn = phys_enc->connector;
 	sde_conn = to_sde_connector(conn);
+#ifdef VENDOR_EDIT
+/*Mark.Yao@PSW.MM.Display.Lcd.Stability, 2018-05-24,avoid recursion handle*/
+	if (cmd_enc->pp_timeout_report_cnt >= PP_TIMEOUT_BAD_TRIALS)
+		return -EFAULT;
+#endif
+
 	cmd_enc->pp_timeout_report_cnt++;
 	pending_kickoff_cnt = atomic_read(&phys_enc->pending_kickoff_cnt);
 
@@ -599,7 +610,12 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 		sde_connector_event_notify(conn, DRM_EVENT_SDE_HW_RECOVERY,
 				sizeof(uint8_t), event);
 	} else if (cmd_enc->pp_timeout_report_cnt) {
+	#ifndef VENDOR_EDIT
+	/*Jie.Hu@PSW.MM.Display.Lcd.Stability, 2019-05-24,add for sove crash issue when esd testing, we think no need to crash here*/
 		SDE_DBG_DUMP("dsi_dbg_bus", "panic");
+	#else /*VENDOR_EDIT*/
+		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
+	#endif
 	}
 
 	/* request a ctl reset before the next kickoff */
@@ -692,7 +708,12 @@ static int _sde_encoder_phys_cmd_poll_write_pointer_started(
 				phys_enc->hw_intf->idx - INTF_0,
 				timeout_us,
 				ret);
+		#ifndef VENDOR_EDIT
+		/*Mark.Yao@PSW.MM.Display.LCD.Stable,2018-12-18 fix crash when unplug screen*/
 		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
+		#else
+		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus");
+		#endif
 	}
 
 end:
@@ -1065,7 +1086,12 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	 * disable sde hw generated TE signal, since hw TE will arrive first.
 	 * Only caveat is if due to error, we hit wrap-around.
 	 */
+#ifdef VENDOR_EDIT
+/*Mark.Yao@PSW.MM.Display.Lcd.Stability, 2018-05-24,add to solve crash issue when panel is disconnect*/
 	tc_cfg.sync_cfg_height = 0xFFF0;
+#else  /*VENDOR_EDIT*/
+	tc_cfg.sync_cfg_height = 2589;
+#endif /*VENDOR_EDIT*/
 	tc_cfg.vsync_init_val = mode->vdisplay;
 	tc_cfg.sync_threshold_start = _get_tearcheck_threshold(phys_enc,
 			&extra_frame_trigger_time);

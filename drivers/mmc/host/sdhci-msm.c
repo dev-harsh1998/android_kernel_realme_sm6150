@@ -4739,6 +4739,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	}
 	msm_host_offset = msm_host->offset;
 	msm_host->sdhci_msm_pdata.ops = &sdhci_msm_ops;
+#ifdef VENDOR_EDIT
+// add by jason.wu 2019.10.28, set max timeout value in sdio control
+	msm_host->sdhci_msm_pdata.quirks |= SDHCI_QUIRK_BROKEN_TIMEOUT_VAL;
+#endif
 	host = sdhci_pltfm_init(pdev, &msm_host->sdhci_msm_pdata, 0);
 	if (IS_ERR(host)) {
 		ret = PTR_ERR(host);

@@ -83,6 +83,15 @@ static void sdhci_dump_state(struct sdhci_host *host)
 
 void sdhci_dumpregs(struct sdhci_host *host)
 {
+#if defined(VENDOR_EDIT) && defined(OPPO_RELEASE_BUILD)
+/*yixue.ge@BSP.drv 2014-06-04 modify for disable sdcard log*/
+	static int flag = 0;
+	if (!flag)
+		flag++;
+	else
+		return;
+#endif
+
 	MMC_TRACE(host->mmc,
 		"%s: 0x04=0x%08x 0x06=0x%08x 0x0E=0x%08x 0x30=0x%08x 0x34=0x%08x 0x38=0x%08x\n",
 		__func__,

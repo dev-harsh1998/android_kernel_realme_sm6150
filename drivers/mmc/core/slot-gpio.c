@@ -39,8 +39,13 @@ static irqreturn_t mmc_gpio_cd_irqt(int irq, void *dev_id)
 
 	pr_debug("%s: cd gpio irq, gpio state %d (CARD_%s)\n",
 		mmc_hostname(host), present, present?"INSERT":"REMOVAL");
-
+ 
+    
 	host->trigger_card_event = true;
+#ifdef VENDOR_EDIT
+    //Lycan.Wang@Prd.BasicDrv, 2014-07-10 Add for retry 5 times when new sdcard init error
+    host->detect_change_retry = 5;
+#endif /* VENDOR_EDIT */
 	mmc_detect_change(host, msecs_to_jiffies(200));
 
 	return IRQ_HANDLED;

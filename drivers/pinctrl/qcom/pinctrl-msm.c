@@ -103,6 +103,32 @@ struct msm_pinctrl {
 #endif
 };
 
+#ifdef VENDOR_EDIT
+/*wanghao@BSP.Bootloader.Bootflow, 2018/06/04, Add for get gpio status*/
+static const char * const values[] = {
+	"high",
+	"low"
+};
+
+static const char * const intr_enables[] = {
+	"int_disable",
+	"int_enabe"
+};
+
+static const char * const intr_polaritys[] = {
+	"active-low-",
+	"active-high-"
+};
+
+
+static const char * const intr_detections[] = {
+	"level",
+	"pos_edge",
+	"neg_edge",
+	"dual_edge"
+};
+#endif
+
 static struct msm_pinctrl *msm_pinctrl_data;
 static void __iomem *reassign_pctrl_reg(
 		const struct msm_pinctrl_soc_data *soc,
@@ -593,6 +619,16 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 	int drive;
 	int pull;
 	u32 ctl_reg;
+	#ifdef VENDOR_EDIT
+/*wanghao@BSP.Bootloader.Bootflow, 2018/06/04, Add for get gpio status*/
+	int in_value;
+	int out_value;
+	int intr_enable;
+	int intr_polarity;
+	int intr_detection;
+	u32 io_reg;
+	u32 intr_cfg_reg;
+#endif
 
 	static const char * const pulls[] = {
 		"no pull",
@@ -610,9 +646,35 @@ static void msm_gpio_dbg_show_one(struct seq_file *s,
 	drive = (ctl_reg >> g->drv_bit) & 7;
 	pull = (ctl_reg >> g->pull_bit) & 3;
 
+#ifdef VENDOR_EDIT
+/*wanghao@BSP.Bootloader.Bootflow, 2018/06/04, Add for get gpio status*/
+	io_reg = readl(base + g->io_reg);
+	intr_cfg_reg = readl(base + g->intr_cfg_reg);
+
+	in_value = !!(io_reg & BIT(g->in_bit));
+	out_value = !!(io_reg & BIT(g->out_bit));
+	intr_enable = (intr_cfg_reg >> g->intr_enable_bit) & 1;
+	intr_polarity = (intr_cfg_reg >> g->intr_polarity_bit) & 1;
+	intr_detection = (intr_cfg_reg >> g->intr_detection_bit) & 3;
+
+	seq_printf(s, " %-8s: ", g->name);
+	seq_printf(s, " %d	", func);
+
+	if(is_out) {
+		seq_printf(s, "out(%-4s)-%d", values[out_value], in_value);
+	} else {
+		seq_printf(s, "in (%-4s)-%d", values[in_value], out_value);
+	}
+
+	seq_printf(s, " %dmA", msm_regval_to_drive(drive));
+	seq_printf(s, " %-9s", pulls[pull]);
+	seq_printf(s, " %-11s", intr_enables[intr_enable]);
+	seq_printf(s, " %s%s", intr_polaritys[intr_polarity], intr_detections[intr_detection]);
+#else
 	seq_printf(s, " %-8s: %-3s %d", g->name, is_out ? "out" : "in", func);
 	seq_printf(s, " %dmA", msm_regval_to_drive(drive));
 	seq_printf(s, " %s", pulls[pull]);
+#endif
 }
 
 static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
@@ -621,6 +683,18 @@ static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	unsigned i;
 
 	for (i = 0; i < chip->ngpio; i++, gpio++) {
+	#ifdef VENDOR_EDIT
+	/*wanghao@BSP.Bootloader.Bootflow, 2018/06/04, Add for get gpio status*/
+		if (gpio == 59 ||
+			gpio == 60 ||
+			gpio == 61 ||
+			gpio == 62 ||
+			gpio == 0 ||
+			gpio == 1 ||
+			gpio == 2 ||
+			gpio == 3)
+			continue;
+	#endif
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
 		seq_puts(s, "\n");
 	}

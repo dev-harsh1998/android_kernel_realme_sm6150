@@ -501,11 +501,22 @@ void pinmux_disable_setting(const struct pinctrl_setting *setting)
 
 			gname = pctlops->get_group_name(pctldev,
 						setting->data.mux.group);
+#ifndef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-04-26  for limit log rate */
 			dev_warn(pctldev->dev,
 				 "not freeing pin %d (%s) as part of "
 				 "deactivating group %s - it is already "
 				 "used for some other setting",
 				 pins[i], desc->name, gname);
+#else
+			if (printk_ratelimit()) {
+				dev_warn(pctldev->dev,
+					 "not freeing pin %d (%s) as part of "
+					 "deactivating group %s - it is already "
+					 "used for some other setting",
+					 pins[i], desc->name, gname);
+			}
+#endif
 		}
 	}
 }

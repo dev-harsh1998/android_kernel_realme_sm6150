@@ -19,15 +19,3 @@ config OPPO_DEVICE_IFNO
 		.
 source "drivers/soc/oppo/project_info/Kconfig"
 source "drivers/soc/oppo/device_info/Kconfig"
-source "drivers/soc/oppo/mdmrst/Kconfig"
-source "drivers/soc/oppo/oppo_hypnus/Kconfig"
-source "drivers/soc/oppo/oppo_healthinfo/Kconfig"
-source "drivers/soc/oppo/oppo_shutdown_detect/Kconfig"
-source "drivers/soc/oppo/oppo_criticallog/Kconfig"
-
-#Kun.Hu@TECH.BSP.Stability.PHOENIX_PROJECT 2019/06/15, Add for PHOENIX_PROJECT
-source "drivers/soc/oppo/oppo_phoenix/Kconfig"
-#ifdef VENDOR_EDIT
-#GaoTing.Gan@PSW.MultiMedia.MediaServer, 2019/03/07, Add for kevent feedback
-source "drivers/soc/oppo/oppo_kevent_feedback/Kconfig"
-#endif /* VENDOR_EDIT */

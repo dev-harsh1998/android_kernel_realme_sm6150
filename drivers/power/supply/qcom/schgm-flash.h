@@ -17,7 +17,7 @@
 
 #ifdef VENDOR_EDIT
 /* Yichun.Chen  PSW.BSP.CHG  2019-07-10  for charge */
-#include "../../../../../vendor/oppo_charger/oppo/charger_ic/oppo_battery_sm7150_P.h"
+#include "../../oppo/charger_ic/oppo_battery_sm7150_P.h"
 #endif
 
 #define SCHGM_FLASH_BASE			0xA600

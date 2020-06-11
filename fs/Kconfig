@@ -314,4 +314,5 @@ config FILE_TABLE_DEBUG
 	help
 	  This option enables debug of the open files using a global filetable
 
+source "fs/exfat/Kconfig"
 endmenu

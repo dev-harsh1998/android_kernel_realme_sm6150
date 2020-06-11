@@ -2157,11 +2157,7 @@ static void do_header_and_snapshot(struct kgsl_device *device, int fault,
             uuidsrcLength = scnprintf(uuidsrc, sizeof(uuidsrc), "%s%d%d", processname, pid, snapshotfault);
             uuid = GPUBKDRHash(uuidsrc, uuidsrcLength);
             device->snapshot->snapshot_hashid = uuid;
-            //dev_err(device->dev,"uuidsrc=%u, %s, line=%d, process=%s, pid=%d", uuid, __FUNCTION__, __LINE__, processname, pid);
-
-            scnprintf(payload, sizeof(payload), "NULL$$EventID@@%d$$EventData@@FaultType=%x,pid=%d$$PackageName@@%s$$fid@@%u",
-                                        OPPO_MM_DIRVER_FB_EVENT_ID_GPU_FAULT, snapshotfault, pid, processname, uuid);
-            upload_mm_kevent_feedback_data(OPPO_MM_DIRVER_FB_EVENT_MODULE_DISPLAY,payload);//gpu hang
+            dev_err(device->dev,"uuidsrc=%u, %s, line=%d, process=%s, pid=%d", uuid, __FUNCTION__, __LINE__, processname, pid);
             snapshotpid = pid;
         }
     }

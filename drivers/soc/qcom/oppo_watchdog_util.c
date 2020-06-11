@@ -193,24 +193,6 @@ void dump_wdog_cpu(struct task_struct *w_task)
 
 int try_to_recover_pending(struct task_struct *w_task)
 {
-	int work_cpu = 0;
-	struct task_struct *p;
-
-	if (recovery_tried)
-		return 0;
-
-	if (task_curr(w_task))
-		return 0;
-
-	work_cpu = task_cpu(w_task);
-	p = oppo_get_cpu_task(work_cpu);
-	if (match_recoverable_procs(p->comm)) {
-		printk(KERN_EMERG "[wdog_util]Try to kill [%s] to recover WDT\n", p->comm);
-		do_send_sig_info(SIGKILL, SEND_SIG_FORCED, p, true);
-		wake_up_process(p);
-		recovery_tried = 1;
-		return 1;
-	}
 	return 0;
 }
 

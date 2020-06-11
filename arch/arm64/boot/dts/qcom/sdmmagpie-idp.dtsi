@@ -419,10 +419,9 @@
 	qcom,thermal-mitigation = <4200000 3500000 3000000
 			2500000 2000000 1500000 1000000 500000>;
 	dpdm-supply = <&qusb_phy0>;
-<<<<<<< HEAD
+
 	qcom,charger-temp-max = <800>;
 	qcom,smb-temp-max = <800>;
-=======
 
 //#ifdef VENDOR_EDIT
 /* Yichun.Chen  PSW.BSP.CHG  2019-04-08  for charge */
@@ -553,7 +552,6 @@
 	pinctrl-3 = <&ship_active>;
 	pinctrl-4 = <&ship_sleep>;
 //#endif
->>>>>>> 7ab5247... [SDM7150_P][PSW.BSP.CHG][1/2][BugId:无][无风险][无依赖][自然集成]{充电基础功能}
 };
 
 &pm6150_gpios {

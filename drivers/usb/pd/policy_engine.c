@@ -388,6 +388,9 @@ struct usbpd {
 	struct workqueue_struct	*wq;
 	struct work_struct	sm_work;
 	struct work_struct	start_periph_work;
+#ifdef VENDOR_EDIT
+	struct delayed_work	vbus_work;
+#endif
 	struct hrtimer		timer;
 	bool			sm_queued;
 
@@ -838,6 +841,7 @@ static int pd_select_pdo(struct usbpd *pd, int pdo_pos, int uv, int ua)
 	return 0;
 }
 
+extern bool oppochg_pd_sdp;
 static int pd_eval_src_caps(struct usbpd *pd)
 {
 	int i;
@@ -875,6 +879,11 @@ static int pd_eval_src_caps(struct usbpd *pd)
 			POWER_SUPPLY_PD_ACTIVE;
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_ACTIVE, &val);
+
+	if (pd->peer_usb_comm && pd->current_dr == DR_UFP && !pd->pd_connected) {
+		printk("set oppochg_pd_sdp = true\n");
+		oppochg_pd_sdp = true;
+	}
 
 	/* First time connecting to a PD source and it supports USB data */
 	if (pd->peer_usb_comm && pd->current_dr == DR_UFP && !pd->pd_connected)
@@ -2636,6 +2645,8 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->current_pr == PR_SINK) {
 			usbpd_set_state(pd, PE_SNK_STARTUP);
 		} else if (pd->current_pr == PR_SRC) {
+#ifndef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-08-26  for disable vconn config */
 			if (!pd->vconn_enabled &&
 					pd->typec_mode ==
 					POWER_SUPPLY_TYPEC_SINK_POWERED_CABLE) {
@@ -2653,6 +2664,7 @@ static void usbpd_sm(struct work_struct *w)
 				else
 					pd->vconn_enabled = true;
 			}
+#endif
 			enable_vbus(pd);
 
 			usbpd_set_state(pd, PE_SRC_STARTUP);
@@ -4373,6 +4385,67 @@ static ssize_t get_battery_status_show(struct device *dev,
 }
 static DEVICE_ATTR_RW(get_battery_status);
 
+#ifdef VENDOR_EDIT
+struct usbpd *pd_lobal;
+unsigned int pd_vbus_ctrl;
+module_param(pd_vbus_ctrl, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(pd_vbus_ctrl, "PD VBUS CONTROL");
+void pd_vbus_reset(struct usbpd *pd)
+{
+	if (!pd) {
+		pr_err("pd_vbus_reset, pd is null\n");
+		return;
+	}
+	if (pd->vbus_enabled) {
+		pr_err("pd_vbus_reset execute\n");
+		regulator_disable(pd->vbus);
+		pd->vbus_enabled = false;
+		stop_usb_host(pd);
+		pd_vbus_ctrl = 500;
+		msleep(pd_vbus_ctrl);
+		start_usb_host(pd, true);
+		enable_vbus(pd);
+	} else {
+		pr_err("pd_vbus is not enabled yet\n");
+	}
+}
+void usbpd_vbus_sm(struct work_struct *w)
+{
+	struct usbpd *pd = pd_lobal;
+	pr_err("usbpd_vbus_sm handle state %s, vbus %d\n",
+			usbpd_state_strings[pd->current_state],pd->vbus_enabled);
+	pd_vbus_reset(pd);
+}
+void kick_usbpd_vbus_sm(void)
+{
+	pm_stay_awake(&pd_lobal->dev);
+	pr_err("kick_usbpd_vbus_sm handle state %s, vbus %d\n",
+			usbpd_state_strings[pd_lobal->current_state],pd_lobal->vbus_enabled);
+	queue_delayed_work(pd_lobal->wq, &(pd_lobal->vbus_work), msecs_to_jiffies(200));
+}
+static ssize_t pd_vbus_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	pr_err("pd_vbus_show handle state %s, vbus %d\n",
+			usbpd_state_strings[pd_lobal->current_state],pd_lobal->vbus_enabled);
+	pd_vbus_reset(pd);
+	return 0;
+}
+static ssize_t pd_vbus_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int val = 0;
+	if (sscanf(buf, "%d\n", &val) != 0) {
+		pr_err("pd_vbus_store input err\n");
+	}
+	pr_err("pd_vbus_store handle state %s, vbus %d,val %d\n",
+			usbpd_state_strings[pd_lobal->current_state],pd_lobal->vbus_enabled,val);
+	kick_usbpd_vbus_sm();
+	return size;
+}
+static DEVICE_ATTR_RW(pd_vbus);
+#endif//VENDOR_EDIT
 static struct attribute *usbpd_attrs[] = {
 	&dev_attr_contract.attr,
 	&dev_attr_initial_pr.attr,
@@ -4397,6 +4470,9 @@ static struct attribute *usbpd_attrs[] = {
 	&dev_attr_get_pps_status.attr,
 	&dev_attr_get_battery_cap.attr,
 	&dev_attr_get_battery_status.attr,
+#ifdef VENDOR_EDIT
+	&dev_attr_pd_vbus.attr,
+#endif
 	NULL,
 };
 ATTRIBUTE_GROUPS(usbpd);
@@ -4473,6 +4549,66 @@ static void usbpd_release(struct device *dev)
 
 	kfree(pd);
 }
+#ifdef VENDOR_EDIT
+int oppo_pdo_select(int vbus_mv, int ibus_ma)
+{
+	int i = 0;
+	int rc = 0;
+	u32 pdo = 0;
+	struct usbpd *pd = pd_lobal;
+	for (i = 0; i < ARRAY_SIZE(pd->received_pdos); i++) {
+		pdo = pd->received_pdos[i];
+		if (vbus_mv == PD_SRC_PDO_FIXED_VOLTAGE(pdo) * 50 || pdo == 0)
+			break;
+	}
+	mutex_lock(&pd->swap_lock);
+	if (pd->current_state != PE_SNK_READY || !is_sink_tx_ok(pd)) {
+		printk(KERN_ERR "%s: cannot select new pdo yet\n", __func__);
+		rc = -EBUSY;
+		goto out;
+	}
+	if (i > 7) {
+		printk(KERN_ERR "%s: inval pdo[0x%x]\n", __func__, pdo);
+		rc = -EINVAL;
+		goto out;
+	}
+	if (vbus_mv != PD_SRC_PDO_FIXED_VOLTAGE(pdo) * 50) {
+		if (i > 0) {
+			printk(KERN_ERR "%s: can not find vbus_mv[%d], the last pdos[%d]=[%d]\n", __func__,
+				vbus_mv, i -1, PD_SRC_PDO_FIXED_VOLTAGE(pd->received_pdos[i - 1]) * 50);
+		} else {
+			printk(KERN_ERR "%s: can not find vbus_mv[%d], pdos0=[%d]\n", __func__,
+				vbus_mv, PD_SRC_PDO_FIXED_VOLTAGE(pd->received_pdos[i]) * 50);
+		}
+		rc = -EINVAL;
+		goto out;
+	}
+	rc = pd_select_pdo(pd, i + 1, vbus_mv * 1000, ibus_ma * 1000);
+	if (rc) {
+		printk(KERN_ERR "%s: pd_select_pdo fail, rc=%d\n", __func__, rc);
+		goto out;
+	}
+	reinit_completion(&pd->is_ready);
+	pd->send_request = true;
+	kick_sm(pd, 0);
+	if (!wait_for_completion_timeout(&pd->is_ready, msecs_to_jiffies(1000))) {
+		printk(KERN_ERR "%s: pdo[%d], vbus_mv[%d], ibus_ma[%d] request timed out\n",
+				__func__, i, vbus_mv, ibus_ma);
+		rc = -ETIMEDOUT;
+		goto out;
+	}
+	if (pd->selected_pdo != pd->requested_pdo ||
+			pd->current_voltage != pd->requested_voltage) {
+		printk(KERN_ERR "%s: request rejected\n", __func__);
+		rc = -EINVAL;
+	}
+out:
+	pd->send_request = false;
+	mutex_unlock(&pd->swap_lock);
+	return rc;
+}
+EXPORT_SYMBOL(oppo_pdo_select);
+#endif /*VENDOR_EDIT*/
 
 static int num_pd_instances;
 
@@ -4662,6 +4798,9 @@ struct usbpd *usbpd_create(struct device *parent)
 
 	/* force read initial power_supply values */
 	psy_changed(&pd->psy_nb, PSY_EVENT_PROP_CHANGED, pd->usb_psy);
+#ifdef VENDOR_EDIT
+		pd_lobal = pd;
+#endif
 
 	return pd;
 

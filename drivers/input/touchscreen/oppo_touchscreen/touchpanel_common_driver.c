@@ -142,6 +142,9 @@ bool has_da_nfc(void){
     return device_has_nfc();
 }
 
+bool ambient_display_status(void){
+    return device_is_dozing();
+}
 
 /*******Part3:Function  Area********************************/
 /**
@@ -1898,6 +1901,24 @@ static const struct file_operations proc_has_nfc_fops = {
     .owner = THIS_MODULE,
 };
 
+static ssize_t proc_is_dozing_rn(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
+{
+    int ret = 0;
+    char page[PAGESIZE] = {0};
+    if (ambient_display_status())
+        snprintf(page, PAGESIZE-1, "%s", "1\n");
+    else
+        snprintf(page, PAGESIZE-1, "%s", "0\n");
+    ret = simple_read_from_buffer(user_buf, count, ppos, page, strlen(page));
+    return ret;
+}
+
+static const struct file_operations proc_is_dozing_rn_fops = {
+    .read  = proc_is_dozing_rn,
+    .open  = simple_open,
+    .owner = THIS_MODULE,
+};
+
 static ssize_t cap_vk_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
     struct button_map *button_map;
@@ -3387,6 +3408,12 @@ static int init_touchpanel_proc(struct touchpanel_data *ts)
     }
 
     prEntry_tmp = proc_create_data("NFC_CHECK", 0444, prEntry_tp, &proc_has_nfc_fops, ts);
+    if (prEntry_tmp == NULL) {
+        ret = -ENOMEM;
+        TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);
+    }
+
+    prEntry_tmp = proc_create_data("DOZE_STATUS", 0444, prEntry_tp, &proc_is_dozing_rn_fops, ts);
     if (prEntry_tmp == NULL) {
         ret = -ENOMEM;
         TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);

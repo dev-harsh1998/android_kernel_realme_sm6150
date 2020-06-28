@@ -36,9 +36,14 @@
 /* Gou shengjun@PSW.MM.Display.Lcd.Stability, 2018-05-31
  * add for drm notifier for display connect
 */
-//#include <linux/oppo_mm_kevent_fb.h>
+#include <linux/oppo_checks.h>
 #include <linux/msm_drm_notify.h>
 #include <linux/notifier.h>
+
+/* Ambient screen check */
+bool device_is_dozing(void){
+	return on_ambient_screen;
+}
 
 /* hujie@PSW.MM.Display.Lcd.Stability, 2019-06-15, add for Mipi clock link*/
 extern struct kobject *oppo_display_kobj;
@@ -1263,6 +1268,9 @@ int dsi_display_set_power(struct drm_connector *connector,
 		pr_err("invalid display/panel\n");
 		return -EINVAL;
 	}
+
+	/* Values refrenced from include/uapi/drm/sde_drm.h#L460 */
+	on_ambient_screen = (power_mode == 1 || power_mode == 2) ? true : false;
 
 	switch (power_mode) {
 	case SDE_MODE_DPMS_LP1:

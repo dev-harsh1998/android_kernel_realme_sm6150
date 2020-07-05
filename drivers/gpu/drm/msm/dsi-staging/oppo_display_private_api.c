@@ -1942,8 +1942,11 @@ static ssize_t oppo_display_notify_panel_blank(struct device *dev,
 		notifier_data.id = 0;
 		msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK,
 						   &notifier_data);
+		if(!device_is_dozing()){
+		printk(KERN_INFO "[WARNING-1998]: DOZE_STATUS was: %d", device_is_dozing());
 		msm_drm_notifier_call_chain(MSM_DRM_EVENT_BLANK,
 						   &notifier_data);
+		}
 	} else if (temp_save == 0) {
 		blank = MSM_DRM_BLANK_POWERDOWN;
 		notifier_data.data = &blank;

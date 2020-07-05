@@ -36,4 +36,5 @@
 #include <linux/init.h>
 #include <drm/drm_mipi_dsi.h>
 #include <linux/dsi_oppo_support.h>
+#include <linux/oppo_checks.h>
 #endif /* _OPPO_DISPLAY_PRIVATE_API_H_ */

@@ -191,20 +191,6 @@ void dump_wdog_cpu(struct task_struct *w_task)
 		show_regs(regs);
 }
 
-static int match_recoverable_procs(char *comm)
-{
-	const char *p;
-	int count = sizeof(recoverable_procs)/sizeof(char *);
-	int i = 0;
-	while(i < count) {
-		p = recoverable_procs[i];
-		if(!strncmp(comm, p, TASK_COMM_LEN))
-			return 1;
-		i++;
-	}
-	return 0;
-}
-
 int try_to_recover_pending(struct task_struct *w_task)
 {
 	int work_cpu = 0;

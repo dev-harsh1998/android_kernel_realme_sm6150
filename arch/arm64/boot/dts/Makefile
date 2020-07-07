@@ -24,8 +24,6 @@
 # dts-dirs += xilinx
 # dts-dirs += lg
 # dts-dirs += zte
-dts-dirs += 19031
-dts-dirs += 19111
 dts-dirs += 19771
 subdir-y	:= $(dts-dirs)
 

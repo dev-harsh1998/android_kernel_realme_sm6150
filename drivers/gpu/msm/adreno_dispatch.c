@@ -2293,7 +2293,7 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 /*Wenhua.Leng@PSW.MM.Display.LCD.Machine, 2019/02/11,add for mm kevent gpu.*/
     setfaulttype(fault);
 #endif
-	do_header_and_snapshot(device, fault, hung_rb, cmdobj, gx_on);
+	do_header_and_snapshot(device, fault, hung_rb, cmdobj);
 
 	/* Turn off the KEEPALIVE vote from the ISR for hard fault */
 	if (gpudev->gpu_keepalive && fault & ADRENO_HARD_FAULT)
@@ -2482,8 +2482,6 @@ static void _adreno_dispatch_check_timeout(struct adreno_device *adreno_dev,
 	unsigned char uuidsrc[100] = "";
 	unsigned int uuidsrcLength = 0;
 	unsigned int uuid          = 0;
-
-	unsigned char payload[100] = "";
 	pid_t pid = -1;
 	char processname[32]={'\0'};
 #endif /*VENDOR_EDIT*/

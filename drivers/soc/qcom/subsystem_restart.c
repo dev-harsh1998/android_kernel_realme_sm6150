@@ -857,26 +857,6 @@ struct subsys_device *find_subsys_device(const char *str)
 }
 EXPORT_SYMBOL(find_subsys_device);
 
-#ifdef VENDOR_EDIT
-/* Fuchun.Liao@BSP.CHG.Basic 2018/11/27 modify for rf cable detect */
-int op_restart_modem(void)
-{
-	struct subsys_device *subsys = find_subsys_device("modem");
-	int restart_level;
-
-	if (!subsys)
-		return -ENODEV;
-	pr_err("%s\n", __func__);
-	restart_level = subsys->restart_level;
-	subsys->restart_level = RESET_SUBSYS_COUPLED;
-	if (subsystem_restart("modem") == -ENODEV)
-		pr_err("%s: SSR call modem failed\n", __func__);
-	subsys->restart_level = restart_level;
-	return 0;
-}
-EXPORT_SYMBOL(op_restart_modem);
-#endif /* VENDOR_EDIT */
-
 static int subsys_start(struct subsys_device *subsys)
 {
 	int ret;
@@ -1023,20 +1003,8 @@ void *__subsystem_get(const char *name, const char *fw_name)
 		}
 		ret = subsys_start(subsys);
 		if (ret) {
-		#ifdef VENDOR_EDIT
-		/*xing.xiong@BSP.Kernel.Driver, 2019/08/17, Add for avoid image load fail*/
-			msleep(200);
-			ret = subsys_start(subsys);
-			pr_warn("+++ BUSY: %s retry to power . (retry_cnt: 2) %d\n", name, ret);
-			if (ret) {
-				panic("+++ Subsystem %s retry_cnt reached MAX!", name);
-				goto err_start;
-			}
-		#else
 			retval = ERR_PTR(ret);
 			goto err_start;
-		#endif
-
 		}
 	}
 	subsys->count++;
@@ -1863,11 +1831,6 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	subsys->desc->state = NULL;
 	strlcpy(subsys->desc->fw_name, desc->name,
 			sizeof(subsys->desc->fw_name));
-
-#if defined(VENDOR_EDIT) && defined(OPPO_RELEASE_BUILD) && !defined(OPPO_AGING_BUILD)
-/*xing.xiong@BSP.Kernel.Driver, 2019/03/28, Add for disable dump for subsys crash*/
-	subsys->restart_level = RESET_SUBSYS_COUPLED;
-#endif
 
 	subsys->notify = subsys_notif_add_subsys(desc->name);
 	subsys->early_notify = subsys_get_early_notif_info(desc->name);

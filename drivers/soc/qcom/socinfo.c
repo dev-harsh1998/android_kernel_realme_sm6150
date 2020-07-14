@@ -399,13 +399,8 @@ static struct msm_soc_info cpu_of_id[] = {
 	[418] = {SDX_CPU_SDXPRAIRIE, "SDXPRAIRIE"},
 
 	/* sdmmagpie ID */
-#if defined(VENDOR_EDIT) && defined(CONFIG_CONFIDENTIAL_VERSION)
-/*xing.xing@BSP.Kernel.Driver, 2019/04/19, Add for confidential version*/
-	[365] = {MSM_CPU_SDMMAGPIE, "SDM710"},
-#else
-	/* sdmmagpie ID */
-	[365] = {MSM_CPU_SDMMAGPIE, "SDM730G AIE"},
-#endif
+	[365] = {MSM_CPU_SDMMAGPIE, "SDMMAGPIE"},
+
 	/* sdmmagpiep ID */
 	[366] = {MSM_CPU_SDMMAGPIEP, "SDMMAGPIEP"},
 

@@ -797,7 +797,6 @@ static struct pil_reset_ops pil_ops_trusted = {
 	.deinit_image = pil_deinit_image_trusted,
 };
 
-#define subsys_to_drv(d) container_of(d, struct modem_data, subsys_desc)
 static void log_failure_reason(const struct pil_tz_data *d)
 {
 	size_t size;

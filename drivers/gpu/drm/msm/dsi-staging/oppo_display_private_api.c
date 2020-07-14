@@ -812,19 +812,14 @@ static ssize_t oppo_display_set_aod(struct device *dev,
 	int temp_save = 0;
 
 	sscanf(buf, "%du", &temp_save);
-	printk(KERN_INFO "%s oppo_display_set_aod = %d\n", __func__, temp_save);
 	if(get_oppo_display_power_status() == OPPO_DISPLAY_POWER_ON) {
-		if(get_main_display() == NULL) {
-			printk(KERN_INFO "oppo_display_set_aod and main display is null");
+		if(get_main_display() == NULL)
 			return count;
-		}
 		if(temp_save == 0) {
 			dsi_display_aod_on(get_main_display());
 		} else if(temp_save == 1) {
 			dsi_display_aod_off(get_main_display());
 		}
-	} else {
-		printk(KERN_ERR	 "%s oppo_display_set_aod = %d, but now display panel status is not on\n", __func__, temp_save);
 	}
 	return count;
 }
@@ -869,16 +864,12 @@ static ssize_t oppo_display_set_hbm(struct device *dev,
 	int ret = 0;
 
 	sscanf(buf, "%du", &temp_save);
-	printk(KERN_INFO "%s oppo_display_set_hbm = %d\n", __func__, temp_save);
-	if (get_oppo_display_power_status() != OPPO_DISPLAY_POWER_ON) {
-		printk(KERN_ERR	 "%s oppo_display_set_hbm = %d, but now display panel status is not on\n", __func__, temp_save);
+	if (get_oppo_display_power_status() != OPPO_DISPLAY_POWER_ON)
 		return -EFAULT;
-	}
 
-	if (!display) {
-		printk(KERN_INFO "oppo_display_set_hbm and main display is null");
+	if (!display)
 		return -EINVAL;
-	}
+
 	__oppo_display_set_hbm(temp_save);
 
 	if((hbm_mode > 1) &&(hbm_mode <= 10)) {
@@ -935,18 +926,13 @@ static ssize_t oppo_display_set_seed(struct device *dev,
 	int temp_save = 0;
 
 	sscanf(buf, "%du", &temp_save);
-	printk(KERN_INFO "%s oppo_display_set_seed = %d\n", __func__, temp_save);
 
 	__oppo_display_set_seed(temp_save);
 	if(get_oppo_display_power_status() == OPPO_DISPLAY_POWER_ON) {
-		if(get_main_display() == NULL) {
-			printk(KERN_INFO "oppo_display_set_seed and main display is null");
+		if(get_main_display() == NULL)
 			return count;
-		}
 
 		dsi_display_seed_mode(get_main_display(), seed_mode);
-	} else {
-		printk(KERN_ERR	 "%s oppo_display_set_seed = %d, but now display panel status is not on\n", __func__, temp_save);
 	}
 	return count;
 }
@@ -965,10 +951,8 @@ static ssize_t oppo_set_aod_light_mode(struct device *dev,
 		return -EFAULT;
 	}
 
-	if (!display) {
-		printk(KERN_INFO "oppo_set_aod_light_mode and main display is null");
+	if (!display)
 		return -EINVAL;
-	}
 
 	if (display->panel->is_hbm_enabled) {
 		pr_err("%s error panel->is_hbm_enabled\n", __func__);
@@ -994,34 +978,28 @@ static ssize_t oppo_set_aod_light_mode(struct device *dev,
 int oppo_display_audio_ready = 0;
 static ssize_t oppo_display_set_audio_ready(struct device *dev,
 		struct device_attribute *attr,
-		const char *buf, size_t count) {
-
+		const char *buf, size_t count)
+{
 	sscanf(buf, "%du", &oppo_display_audio_ready);
 
 	return count;
 }
 
 static ssize_t oppo_display_get_hbm(struct device *dev,
-struct device_attribute *attr, char *buf) {
-
-	printk(KERN_INFO "oppo_display_get_hbm = %d\n",hbm_mode);
-
+struct device_attribute *attr, char *buf)
+{
 	return sprintf(buf, "%d\n", hbm_mode);
 }
 
 static ssize_t oppo_display_get_seed(struct device *dev,
-struct device_attribute *attr, char *buf) {
-
-	printk(KERN_INFO "oppo_display_get_seed = %d\n",seed_mode);
-
+struct device_attribute *attr, char *buf)
+{
 	return sprintf(buf, "%d\n", seed_mode);
 }
 
 static ssize_t oppo_get_aod_light_mode(struct device *dev,
-struct device_attribute *attr, char *buf) {
-
-	printk(KERN_INFO "oppo_get_aod_light_mode = %d\n",aod_light_mode);
-
+struct device_attribute *attr, char *buf)
+{
 	return sprintf(buf, "%d\n", aod_light_mode);
 }
 
@@ -1031,11 +1009,9 @@ static ssize_t oppo_display_regulator_control(struct device *dev,
 	int temp_save = 0;
 	struct dsi_display *temp_display;
 	sscanf(buf, "%du", &temp_save);
-	printk(KERN_INFO "%s oppo_display_regulator_control = %d\n", __func__, temp_save);
-	if(get_main_display() == NULL) {
-		printk(KERN_INFO "oppo_display_regulator_control and main display is null");
+	if(get_main_display() == NULL)
 		return count;
-	}
+
 	temp_display = get_main_display();
 	if(temp_save == 0) {
 		dsi_pwr_enable_regulator(&temp_display->panel->power_info, false);
@@ -1054,15 +1030,11 @@ struct device_attribute *attr, char *buf) {
 	struct dsi_display *display = get_main_display();
 	int i;
 
-	if (!display) {
-		printk(KERN_INFO "oppo_display_get_panel_serial_number and main display is null");
+	if (!display)
 		return -1;
-	}
 
-	if(get_oppo_display_power_status() != OPPO_DISPLAY_POWER_ON) {
-		printk(KERN_ERR"%s display panel in off status\n", __func__);
+	if(get_oppo_display_power_status() != OPPO_DISPLAY_POWER_ON)
 		return ret;
-	}
 
 	/*
 	 * for some unknown reason, the panel_serial_info may read dummy,
@@ -1144,9 +1116,6 @@ static ssize_t oppo_display_set_panel_reg(struct device *dev,
 		}
 		dsi_display_read_panel_reg(get_main_display(),value, reg, len);
 
-		for (index; index < len; index++) {
-			printk("%x ", reg[index]);
-		}
 		return count;
 	}
 
@@ -1195,7 +1164,6 @@ struct device_attribute *attr, char *buf) {
 
 	if(get_oppo_display_power_status() == OPPO_DISPLAY_POWER_ON) {
 		if(get_main_display() == NULL) {
-			printk(KERN_INFO "oppo_display_get_panel_id and main display is null");
 			ret = -1;
 			return ret;
 		}
@@ -1206,8 +1174,6 @@ struct device_attribute *attr, char *buf) {
 		} else {
 			ret = scnprintf(buf, PAGE_SIZE, "oppo_display_get_panel_id: 0x%x\n",read[0]);
 		}
-	} else {
-		printk(KERN_ERR	 "%s oppo_display_get_panel_id, but now display panel status is not on\n", __func__);
 	}
 	return ret;
 }
@@ -1219,7 +1185,6 @@ struct device_attribute *attr, char *buf) {
 
 	if(get_oppo_display_power_status() == OPPO_DISPLAY_POWER_ON) {
 		if(get_main_display() == NULL) {
-			printk(KERN_INFO "oppo_display_get_panel_dsc and main display is null");
 			ret = -1;
 			return ret;
 		}
@@ -1230,8 +1195,6 @@ struct device_attribute *attr, char *buf) {
 		} else {
 			ret = scnprintf(buf, PAGE_SIZE, "oppo_display_get_panel_dsc: 0x%x\n",read[0]);
 		}
-	} else {
-		printk(KERN_ERR	 "%s oppo_display_get_panel_dsc, but now display panel status is not on\n", __func__);
 	}
 	return ret;
 }
@@ -1244,13 +1207,11 @@ struct device_attribute *attr, char *buf) {
 	temp_display = get_main_display();
 
 	if(temp_display == NULL ) {
-		printk(KERN_INFO "oppo_display_dump_info and main display is null");
 		ret = -1;
 		return ret;
 	}
 
 	if(temp_display->modes == NULL) {
-		printk(KERN_INFO "oppo_display_dump_info and display modes is null");
 		ret = -1;
 		return ret;
 	}
@@ -1271,10 +1232,8 @@ int __oppo_display_set_power_status(int status) {
 	return 0;
 }
 static ssize_t oppo_display_get_power_status(struct device *dev,
-struct device_attribute *attr, char *buf) {
-
-	printk(KERN_INFO "oppo_display_get_power_status = %d\n",get_oppo_display_power_status());
-
+struct device_attribute *attr, char *buf)
+{
 	return sprintf(buf, "%d\n", get_oppo_display_power_status());
 }
 
@@ -1284,7 +1243,6 @@ static ssize_t oppo_display_set_power_status(struct device *dev,
 	int temp_save = 0;
 
 	sscanf(buf, "%du", &temp_save);
-	printk(KERN_INFO "%s oppo_display_set_power_status = %d\n", __func__, temp_save);
 
 	__oppo_display_set_power_status(temp_save);
 
@@ -1294,7 +1252,6 @@ static ssize_t oppo_display_set_power_status(struct device *dev,
 static ssize_t oppo_display_get_closebl_flag(struct device *dev,
                                 struct device_attribute *attr, char *buf)
 {
-	printk(KERN_INFO "oppo_display_get_closebl_flag = %d\n",lcd_closebl_flag);
 	return sprintf(buf, "%d\n", lcd_closebl_flag);
 }
 
@@ -1934,7 +1891,6 @@ static ssize_t oppo_display_notify_panel_blank(struct device *dev,
 	int temp_save = 0;
 
 	sscanf(buf, "%du", &temp_save);
-	printk(KERN_INFO "%s oppo_display_notify_panel_blank = %d\n", __func__, temp_save);
 
 	if(temp_save == 1) {
 		blank = MSM_DRM_BLANK_UNBLANK;
@@ -1942,11 +1898,9 @@ static ssize_t oppo_display_notify_panel_blank(struct device *dev,
 		notifier_data.id = 0;
 		msm_drm_notifier_call_chain(MSM_DRM_EARLY_EVENT_BLANK,
 						   &notifier_data);
-		if(!device_is_dozing()){
-		printk(KERN_INFO "[WARNING-1998]: DOZE_STATUS was: %d", device_is_dozing());
-		msm_drm_notifier_call_chain(MSM_DRM_EVENT_BLANK,
-						   &notifier_data);
-		}
+		if (!device_is_dozing())
+			msm_drm_notifier_call_chain(MSM_DRM_EVENT_BLANK,
+							   &notifier_data);
 	} else if (temp_save == 0) {
 		blank = MSM_DRM_BLANK_POWERDOWN;
 		notifier_data.data = &blank;
@@ -1985,10 +1939,8 @@ static ssize_t oppo_set_ffl_setting(struct device *dev,
 		const char *buf, size_t count)
 {
 	int enable = 0;
-	//unsigned char payload[32] = "";
 
 	sscanf(buf, "%du", &enable);
-	printk(KERN_INFO "%s oppo_set_ffl_setting = %d\n", __func__, enable);
 
 	mutex_lock(&oppo_ffl_lock);
 

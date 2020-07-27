@@ -414,7 +414,7 @@
 		fingerprint_underscreen_support;
 		report_120hz_support;
 		report_point_first_support;
-
+                glove_mode_support;
 		touchpanel,button-type = <4>;
 		touchpanel.button-TRx = <0 0>;
 	};

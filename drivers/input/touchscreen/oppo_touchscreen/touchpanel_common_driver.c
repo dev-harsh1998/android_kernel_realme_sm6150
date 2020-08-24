@@ -1919,6 +1919,58 @@ static const struct file_operations proc_is_dozing_rn_fops = {
     .owner = THIS_MODULE,
 };
 
+static ssize_t prox_mask_show(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
+{
+    char page[PAGESIZE] = {0};
+    snprintf(page, PAGESIZE-1, "%d\n", infra_prox_far);
+    return simple_read_from_buffer(user_buf, count, ppos, page, strlen(page));
+}
+
+static ssize_t prox_mask_write(struct file *file, const char __user *user_buf, size_t count, loff_t *ppos)
+{
+    struct touchpanel_data *ts = PDE_DATA(file_inode(file));
+    int value = 0;
+    char buf[4] = {0};
+
+    if (count > 2 || !ts)
+        return count;
+
+    if (copy_from_user(buf, user_buf, count)) {
+        TPD_INFO("%s: read proc input error.\n", __func__);
+        return count;
+    }
+
+    sscanf(buf, "%d", &value);
+    if (value > 2){
+        TPD_INFO("BSDK PROXIMITY?");
+        return count;
+    }
+    TPD_INFO("%d was the userspace proximity value", value);
+
+    // Set infra far
+    infra_prox_far = !!value & !!ts->is_suspended & !!ts->fd_enable;
+    TPD_INFO("%d was the value of infra proximity", infra_prox_far);
+
+    // Final sanity check if not triggered /dev/input/event3 goes brrrrr
+    if(!infra_prox_far && infra_prox_far != 1)
+        return count;
+
+    //hold mutex & send far event
+    mutex_lock(&ts->mutex);
+    input_event(ts->ps_input_dev, EV_MSC, MSC_RAW, 0);
+    input_sync(ts->ps_input_dev);
+    mutex_unlock(&ts->mutex);
+
+    return count;
+}
+
+static const struct file_operations prox_mask_control_fops = {
+    .write = prox_mask_write,
+    .read =  prox_mask_show,
+    .open = simple_open,
+    .owner = THIS_MODULE,
+};
+
 static ssize_t cap_vk_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
     struct button_map *button_map;
@@ -3414,6 +3466,12 @@ static int init_touchpanel_proc(struct touchpanel_data *ts)
     }
 
     prEntry_tmp = proc_create_data("DOZE_STATUS", 0444, prEntry_tp, &proc_is_dozing_rn_fops, ts);
+    if (prEntry_tmp == NULL) {
+        ret = -ENOMEM;
+        TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);
+    }
+
+    prEntry_tmp = proc_create_data("prox_mask", 0666, prEntry_tp, &prox_mask_control_fops, ts);
     if (prEntry_tmp == NULL) {
         ret = -ENOMEM;
         TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);

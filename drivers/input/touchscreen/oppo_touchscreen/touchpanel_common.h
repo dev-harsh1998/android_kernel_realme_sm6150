@@ -767,6 +767,8 @@ struct earsense_proc_operations {
     void (*self_data_read)      (void *chip_data, char *earsense_self_data, int read_length);
 };
 
+static bool infra_prox_far = false; //To be used by userspace proximity to toggle kernel proximity events
+
 /*********PART3:function or variables for other files**********************/
 extern unsigned int tp_debug ;                                                            /*using for print debug log*/
 

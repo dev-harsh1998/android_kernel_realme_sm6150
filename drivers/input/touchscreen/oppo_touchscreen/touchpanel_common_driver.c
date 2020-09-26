@@ -199,7 +199,6 @@ void operate_mode_switch(struct touchpanel_data *ts)
                 input_event(ts->ps_input_dev, EV_MSC, MSC_RAW, 0);
                 input_sync(ts->ps_input_dev);
             }
-	    infra_prox_far = false;
             ts->ts_ops->mode_switch(ts->chip_data, MODE_FACE_DETECT, ts->fd_enable == 1);
         }
 
@@ -1037,6 +1036,11 @@ static void tp_face_detect_handle(struct touchpanel_data *ts)
     ps_state = ts->ts_ops->get_face_state(ts->chip_data);
     if (ps_state < 0)
         return;
+
+    if(infra_prox_far && !ps_state){
+        TPD_INFO("Not overriding since userspace proximity reported near event.");
+        return;
+    }
 
     input_event(ts->ps_input_dev, EV_MSC, MSC_RAW, ps_state);
     input_sync(ts->ps_input_dev);
@@ -1948,17 +1952,19 @@ static ssize_t prox_mask_write(struct file *file, const char __user *user_buf, s
     }
     TPD_INFO("%d was the userspace proximity value", value);
 
-    // Set infra far
-    infra_prox_far = !!value & !!ts->is_suspended & !!ts->fd_enable;
-    TPD_INFO("%d was the value of infra proximity", infra_prox_far);
+    // Invert the userspace value
+    infra_prox_far = !(!!value);
+    TPD_INFO("%s was the value of infra proximity", infra_prox_far ? "Near": "Far");
 
-    // Final sanity check if not triggered /dev/input/event3 goes brrrrr
-    if(!infra_prox_far && infra_prox_far != 1)
+    // Make sure the touchpanel is suspended before writing event node.
+    if(!(!!ts->fd_enable) && (infra_prox_far || !infra_prox_far)) {
+        TPD_INFO("proximity Bailing out, Suspend Status:%d, TP_PS:%d, INFRA_PS:%d", !!ts->is_suspended , !!ts->fd_enable, infra_prox_far);
         return count;
+    }
 
-    //hold mutex & send far event
+    //hold mutex & send event
     mutex_lock(&ts->mutex);
-    input_event(ts->ps_input_dev, EV_MSC, MSC_RAW, 0);
+    input_event(ts->ps_input_dev, EV_MSC, MSC_RAW, infra_prox_far);
     input_sync(ts->ps_input_dev);
     mutex_unlock(&ts->mutex);
 
@@ -6202,6 +6208,7 @@ static void tp_resume(struct device *dev)
     }
 
 
+    infra_prox_far = false;
     queue_work(ts->speedup_resume_wq, &ts->speed_up_work);
     return;
 

@@ -146,6 +146,10 @@ bool ambient_display_status(void){
     return device_is_dozing();
 }
 
+bool is_call_session(void){
+    return q6_call_status();
+}
+
 /*******Part3:Function  Area********************************/
 /**
  * operate_mode_switch - switch work mode based on current params
@@ -1952,6 +1956,11 @@ static ssize_t prox_mask_write(struct file *file, const char __user *user_buf, s
     }
     TPD_INFO("%d was the userspace proximity value", value);
 
+
+    if (!is_call_session()){
+       return count;
+    }
+
     // Invert the userspace value
     infra_prox_far = !(!!value);
     TPD_INFO("%s was the value of infra proximity", infra_prox_far ? "Near": "Far");
@@ -1975,6 +1984,19 @@ static const struct file_operations prox_mask_control_fops = {
     .write = prox_mask_write,
     .read =  prox_mask_show,
     .open = simple_open,
+    .owner = THIS_MODULE,
+};
+
+static ssize_t incall_panel_suspend_show(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
+{
+    char page[PAGESIZE] = {0};
+    snprintf(page, PAGESIZE-1, "%d\n", is_call_session());
+    return simple_read_from_buffer(user_buf, count, ppos, page, strlen(page));
+}
+
+static const struct file_operations incall_panel_suspend_fops = {
+    .read  = incall_panel_suspend_show,
+    .open  = simple_open,
     .owner = THIS_MODULE,
 };
 
@@ -3479,6 +3501,12 @@ static int init_touchpanel_proc(struct touchpanel_data *ts)
     }
 
     prEntry_tmp = proc_create_data("prox_mask", 0666, prEntry_tp, &prox_mask_control_fops, ts);
+    if (prEntry_tmp == NULL) {
+        ret = -ENOMEM;
+        TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);
+    }
+
+    prEntry_tmp = proc_create_data("incall_status", 0444, prEntry_tp, &incall_panel_suspend_fops, ts);
     if (prEntry_tmp == NULL) {
         ret = -ENOMEM;
         TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);

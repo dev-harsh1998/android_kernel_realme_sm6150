@@ -30,6 +30,7 @@
 #include <ipc/apr_tal.h>
 #include "adsp_err.h"
 #include <dsp/voice_mhi.h>
+#include <linux/oppo_checks.h>
 
 #define TIMEOUT_MS 300
 
@@ -153,6 +154,10 @@ static int voice_pack_and_set_cvp_param(struct voice_data *v,
 static int voice_pack_and_set_cvs_ui_property(struct voice_data *v,
 					      struct param_hdr_v3 param_hdr,
 					      u8 *param_data);
+
+bool q6_call_status(){
+	return call_status;
+}
 
 static void voice_itr_init(struct voice_session_itr *itr,
 			   u32 session_id)
@@ -6883,6 +6888,7 @@ int voc_end_voice_call(uint32_t session_id)
 		ret = -EINVAL;
 	}
 
+	call_status = false;
 	mutex_unlock(&v->lock);
 	return ret;
 }
@@ -7281,6 +7287,7 @@ int voc_start_voice_call(uint32_t session_id)
 		ret = -EINVAL;
 		goto fail;
 	}
+	call_status = true;
 fail:
 	mutex_unlock(&v->lock);
 	return ret;

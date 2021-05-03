@@ -47,23 +47,23 @@
 /*******Part0:LOG TAG Declear************************/
 #define TPD_PRINT_POINT_NUM 150
 #define TPD_DEVICE "touchpanel"
-#define TPD_INFO(a, arg...)  pr_err("[TP]"TPD_DEVICE ": " a, ##arg)
+#define TPD_INFO(a, arg...)  pr_info("[TP]"TPD_DEVICE ": " a, ##arg)
 #define TPD_DEBUG(a, arg...)\
     do{\
         if (LEVEL_DEBUG == tp_debug)\
-            pr_err("[TP]"TPD_DEVICE ": " a, ##arg);\
+            pr_debug("[TP]"TPD_DEVICE ": " a, ##arg);\
     }while(0)
 
 #define TPD_DETAIL(a, arg...)\
     do{\
         if (LEVEL_BASIC != tp_debug)\
-            pr_err("[TP]"TPD_DEVICE ": " a, ##arg);\
+            pr_info("[TP]"TPD_DEVICE ": " a, ##arg);\
     }while(0)
 
 #define TPD_SPECIFIC_PRINT(count, a, arg...)\
     do{\
         if (count++ == TPD_PRINT_POINT_NUM || LEVEL_DEBUG == tp_debug) {\
-            TPD_INFO(TPD_DEVICE ": " a, ##arg);\
+            TPD_DEBUG(TPD_DEVICE ": " a, ##arg);\
             count = 0;\
         }\
     }while(0)
@@ -320,7 +320,9 @@ static void tp_touch_down(struct touchpanel_data *ts, struct point_info points, 
     input_report_abs(ts->input_dev, ABS_MT_POSITION_X, points.x);
     input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, points.y);
 
-    TPD_SPECIFIC_PRINT(point_num, "Touchpanel id %d :Down[%4d %4d %4d]\n", id, points.x, points.y, points.z);
+    if (tp_debug > 0) {
+        TPD_SPECIFIC_PRINT(point_num, "Touchpanel id %d :Down[%4d %4d %4d]\n", id, points.x, points.y, points.z);
+    }
 
 #ifndef TYPE_B_PROTOCOL
     input_mt_sync(ts->input_dev);

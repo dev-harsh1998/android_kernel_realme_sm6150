@@ -53,10 +53,6 @@ struct tfa98xx *tfa98xx_whole_v6;
 extern bool g_speaker_resistance_fail;
 #endif /* VENDOR_EDIT */
 
-#ifndef CONFIG_DEBUG_FS
-#define CONFIG_DEBUG_FS
-#endif
-
 #define TFA98XX_VERSION	TFA98XX_API_REV_STR
 
 #define I2C_RETRIES 50
@@ -132,7 +128,6 @@ static void tfa98xx_interrupt_enable(struct tfa98xx *tfa98xx, bool enable);
 
 static int get_profile_from_list(char *buf, int id);
 static int get_profile_id_for_sr(int id, unsigned int rate);
-static enum Tfa98xx_Error tfa9874_calibrate(struct tfa98xx *tfa98xx, int *speakerImpedance);
 
 extern int send_tfa_cal_apr(void *buf, int cmd_size, bool bRead);
 extern int send_tfa_cal_in_band(void *buf, int cmd_size);
@@ -383,6 +378,7 @@ static const struct file_operations tfa98xx_debug_ops =
 };
 #endif /* VENDOR_EDIT */
 
+#ifdef CONFIG_DEBUG_FS
 static enum Tfa98xx_Error tfa9874_calibrate(struct tfa98xx *tfa98xx, int *speakerImpedance)
 {
 
@@ -494,6 +490,7 @@ static enum Tfa98xx_Error tfa9874_calibrate(struct tfa98xx *tfa98xx, int *speake
 	return Tfa98xx_Error_Ok;
 
 }
+#endif
 
 /* Wrapper for tfa start */
 static enum tfa_error tfa98xx_tfa_start(struct tfa98xx *tfa98xx, int next_profile, int vstep)

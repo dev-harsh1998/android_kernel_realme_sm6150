@@ -1599,7 +1599,10 @@ errout:
 		if (inode->i_nlink)
 			ext4_orphan_del(NULL, inode);
 	}
-
+#if defined(CONFIG_OPLUS_FEATURE_EXT4_ASYNC_DISCARD)
+//yh@PSW.BSP.Storage.EXT4, 2018-11-26 add for ext4 async discard suppot
+	ext4_update_time(EXT4_SB(inode->i_sb));
+#endif
 	return ret ? ret : copied;
 }
 

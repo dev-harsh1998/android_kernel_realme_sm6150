@@ -1500,6 +1500,7 @@ static const match_table_t tokens = {
 	{Opt_dioread_nolock, "dioread_nolock"},
 	{Opt_dioread_lock, "dioread_lock"},
 	{Opt_discard, "discard"},
+	{Opt_discard, "async_discard"},
 	{Opt_nodiscard, "nodiscard"},
 	{Opt_init_itable, "init_itable=%u"},
 	{Opt_init_itable, "init_itable"},

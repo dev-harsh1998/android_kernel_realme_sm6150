@@ -112,7 +112,6 @@ OPLUS_FEATURE_MODEM_DATA_NWPOWER \
 OPLUS_FEATURE_PERFORMANCE
 
 $(foreach myfeature,$(ALLOWED_MCROS),\
-         $(warning make $(myfeature) to be a macro here) \
          $(eval KBUILD_CFLAGS += -D$(myfeature)) \
          $(eval KBUILD_CPPFLAGS += -D$(myfeature)) \
          $(eval CFLAGS_KERNEL += -D$(myfeature)) \
@@ -201,13 +200,10 @@ inner_oplus_wakelock_dir2_exist := $(shell if [ -d $(inner_oplus_wakelock_dir2) 
 inner_oplus_link_name := oplus_wakelock
 inner_oplus_link_target := $(inner_mk_dir)/../kernel/msm-5.4/drivers/soc/oplus/$(inner_oplus_link_name)
 ifeq ($(inner_oplus_wakelock_dir1_exist), exist)
-$(warning "source is $(inner_oplus_wakelock_dir1)")
 $(shell ln -sf $(inner_oplus_wakelock_dir1) $(inner_oplus_link_target))
 else ifeq ($(inner_oplus_wakelock_dir2_exist), exist)
-$(warning "source is $(inner_oplus_wakelock_dir2)")
 $(shell ln -sf $(inner_oplus_wakelock_dir2) $(inner_oplus_link_target))
 else
-$(warning "source is nothing")
 endif
 #endif /* OPLUS_FEATURE_POWERINFO_STANDBY */
 

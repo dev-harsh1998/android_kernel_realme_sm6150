@@ -84,6 +84,10 @@
 #define SM6150_SOC_VERSION_1_0 0x00010000
 #define SM6150_SOC_MSM_ID 0x163
 
+static unsigned long clk_on_jiffies = 0;
+static unsigned long clk_off_jiffies = 0;
+static unsigned int clk_switch_us = 52*1000;
+
 enum {
 	SLIM_RX_0 = 0,
 	SLIM_RX_1,
@@ -173,6 +177,12 @@ enum {
 	CDC_DMA_TX_MAX,
 };
 
+// AEC Loopback
+enum {
+	AFE_LOOPBACK_TX_IDX = 0,
+	AFE_LOOPBACK_TX_IDX_MAX,
+};
+
 struct mi2s_conf {
 	struct mutex lock;
 	u32 ref_cnt;
@@ -214,6 +224,7 @@ struct msm_asoc_mach_data {
 	int usbc_en2_gpio; /* used by gpio driver API */
 	int hph_en1_gpio;
 	int hph_en0_gpio;
+	int dmic_switch_gpio;
 	struct device_node *mi2s_gpio_p[MI2S_MAX]; /* used by pinctrl API */
 	struct device_node *dmic01_gpio_p; /* used by pinctrl API */
 	struct device_node *dmic23_gpio_p; /* used by pinctrl API */
@@ -387,6 +398,10 @@ static struct dev_config cdc_dma_tx_cfg[] = {
 	[TX_CDC_DMA_TX_4] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
 };
 
+static struct dev_config afe_loopback_tx_cfg[] = {
+	[AFE_LOOPBACK_TX_IDX] = {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
+};
+
 /* Default configuration of external display BE */
 static struct dev_config ext_disp_rx_cfg[] = {
 	[DP_RX_IDX] =   {SAMPLING_RATE_48KHZ, SNDRV_PCM_FORMAT_S16_LE, 2},
@@ -443,6 +458,7 @@ static struct dev_config aux_pcm_tx_cfg[] = {
 	[QUIN_AUX_PCM] = {SAMPLING_RATE_8KHZ, SNDRV_PCM_FORMAT_S16_LE, 1},
 };
 static int msm_vi_feed_tx_ch = 2;
+static const char *const afe_loopback_tx_ch_text[] = {"One", "Two"};
 static const char *const slim_rx_ch_text[] = {"One", "Two"};
 static const char *const slim_tx_ch_text[] = {"One", "Two", "Three", "Four",
 						"Five", "Six", "Seven",
@@ -506,6 +522,7 @@ static char const *cdc_dma_sample_rate_text[] = {"KHZ_8", "KHZ_11P025",
 						 "KHZ_352P8", "KHZ_384"};
 
 
+static SOC_ENUM_SINGLE_EXT_DECL(afe_loopback_tx_chs, afe_loopback_tx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_2_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_tx_chs, slim_tx_ch_text);
@@ -651,7 +668,7 @@ static int msm_aux_codec_init(struct snd_soc_component *component);
 static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
-	.detect_extn_cable = true,
+	.detect_extn_cable = false,
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
@@ -664,7 +681,7 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.key_code[6] = 0,
 	.key_code[7] = 0,
 	.linein_th = 5000,
-	.moisture_en = true,
+	.moisture_en = false,
 	.mbhc_micbias = MIC_BIAS_2,
 	.anc_micbias = MIC_BIAS_2,
 	.enable_anc_mic_detect = false,
@@ -1080,6 +1097,26 @@ static int slim_tx_bit_format_put(struct snd_kcontrol *kcontrol,
 			ucontrol->value.enumerated.item[0]);
 
 	return 0;
+}
+
+static int afe_loopback_tx_ch_get(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_slim_[0]_rx_ch  = %d\n", __func__,
+		 afe_loopback_tx_cfg[0].channels);
+	ucontrol->value.enumerated.item[0] = afe_loopback_tx_cfg[0].channels - 1;
+
+	return 0;
+}
+
+static int afe_loopback_tx_ch_put(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	afe_loopback_tx_cfg[0].channels = ucontrol->value.enumerated.item[0] + 1;
+	pr_debug("%s: msm_slim_[0]_rx_ch  = %d\n", __func__,
+		 afe_loopback_tx_cfg[0].channels);
+
+	return 1;
 }
 
 static int slim_rx_ch_get(struct snd_kcontrol *kcontrol,
@@ -3482,6 +3519,8 @@ static int msm_hifi_put(struct snd_kcontrol *kcontrol,
 }
 
 static const struct snd_kcontrol_new msm_int_snd_controls[] = {
+	SOC_ENUM_EXT("AFE_LOOPBACK_TX Channels", afe_loopback_tx_chs,
+			afe_loopback_tx_ch_get, afe_loopback_tx_ch_put),
 	SOC_ENUM_EXT("WSA_CDC_DMA_RX_0 Channels", wsa_cdc_dma_rx_0_chs,
 			cdc_dma_rx_ch_get, cdc_dma_rx_ch_put),
 	SOC_ENUM_EXT("WSA_CDC_DMA_RX_1 Channels", wsa_cdc_dma_rx_1_chs,
@@ -3587,6 +3626,8 @@ static const struct snd_kcontrol_new msm_int_snd_controls[] = {
 };
 
 static const struct snd_kcontrol_new msm_ext_snd_controls[] = {
+	SOC_ENUM_EXT("AFE_LOOPBACK_TX Channels", afe_loopback_tx_chs,
+			afe_loopback_tx_ch_get, afe_loopback_tx_ch_put),
 	SOC_ENUM_EXT("SLIM_0_RX Channels", slim_0_rx_chs,
 			slim_rx_ch_get, slim_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_2_RX Channels", slim_2_rx_chs,
@@ -4013,6 +4054,8 @@ static int msm_dmic_event(struct snd_soc_dapm_widget *w,
 	int *dmic_gpio_cnt;
 	struct device_node *dmic_gpio;
 	char  *wname;
+	static bool dmic_active = false;
+	unsigned int interval_us = 0;
 
 	wname = strpbrk(w->name, "0123");
 	if (!wname) {
@@ -4051,6 +4094,30 @@ static int msm_dmic_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+
+		if (!dmic_active) {
+			if ((jiffies > clk_off_jiffies)
+				&& ((jiffies - clk_off_jiffies) < usecs_to_jiffies(clk_switch_us))) {
+				interval_us = jiffies_to_usecs(jiffies - clk_off_jiffies);
+				pr_warn("%s: clk off %d us, too short!\n", __func__, interval_us);
+				if (interval_us < clk_switch_us) {
+					usleep_range(clk_switch_us-interval_us, clk_switch_us-interval_us+50);
+					pr_warn("%s: before turn on clk, sleep %d us!\n",
+						__func__, clk_switch_us - interval_us);
+				}
+			}
+		}
+
+		if (dmic_idx == 1) {
+			if (gpio_is_valid(pdata->dmic_switch_gpio)) {
+				ret = gpio_direction_output(pdata->dmic_switch_gpio, 0);
+				pr_info("%s: dmic_switch_gpio output 0, ret:%d\n",
+					__func__, ret);
+			} else {
+				pr_err(" %s: dmic_switch_gpio invalid", __func__);
+			}
+		}
+
 		(*dmic_gpio_cnt)++;
 		if (*dmic_gpio_cnt == 1) {
 			ret = msm_cdc_pinctrl_select_active_state(
@@ -4060,6 +4127,11 @@ static int msm_dmic_event(struct snd_soc_dapm_widget *w,
 					__func__, "dmic_gpio");
 				return ret;
 			}
+		}
+
+		if (!dmic_active) {
+			dmic_active = true;
+			clk_on_jiffies = jiffies;
 		}
 
 		break;
@@ -4074,6 +4146,21 @@ static int msm_dmic_event(struct snd_soc_dapm_widget *w,
 				return ret;
 			}
 		}
+
+		if (dmic_active) {
+			dmic_active = false;
+		}
+
+		if (dmic_idx == 1) {
+			if (gpio_is_valid(pdata->dmic_switch_gpio)) {
+				ret = gpio_direction_output(pdata->dmic_switch_gpio, 1);
+				pr_info("%s: dmic_switch_gpio output 1, ret:%d\n",
+					__func__, ret);
+			} else {
+				pr_err(" %s: dmic_switch_gpio invalid", __func__);
+			}
+		}
+
 		break;
 	default:
 		pr_err("%s: invalid DAPM event %d\n", __func__, event);
@@ -4234,7 +4321,7 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 	int rc = 0;
-	int idx;
+	int idx = 0;
 	void *config = NULL;
 	struct snd_soc_codec *codec = NULL;
 
@@ -4242,6 +4329,12 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		  __func__, params_format(params), params_rate(params));
 
 	switch (dai_link->id) {
+	case MSM_BACKEND_DAI_AFE_LOOPBACK_TX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				afe_loopback_tx_cfg[idx].bit_format);
+		rate->min = rate->max = afe_loopback_tx_cfg[idx].sample_rate;
+		channels->min = channels->max = afe_loopback_tx_cfg[idx].channels;
+		break;
 	case MSM_BACKEND_DAI_SLIMBUS_0_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_1_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_2_RX:
@@ -5070,7 +5163,6 @@ static int msm_int_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
 	struct snd_card *card;
 	struct snd_info_entry *entry;
-	struct snd_soc_component *aux_comp;
 	struct msm_asoc_mach_data *pdata =
 				snd_soc_card_get_drvdata(rtd->card);
 
@@ -5108,27 +5200,7 @@ static int msm_int_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT_WSA");
 
 	snd_soc_dapm_sync(dapm);
-
-	/*
-	 * Send speaker configuration only for WSA8810.
-	 * Default configuration is for WSA8815.
-	 */
-	dev_dbg(codec->dev, "%s: Number of aux devices: %d\n",
-		__func__, rtd->card->num_aux_devs);
-	if (rtd->card->num_aux_devs &&
-	    !list_empty(&rtd->card->aux_comp_list)) {
-		list_for_each_entry(aux_comp, &rtd->card->aux_comp_list,
-				card_aux_list) {
-			if (!strcmp(aux_comp->name, WSA8810_NAME_1) ||
-			    !strcmp(aux_comp->name, WSA8810_NAME_2)) {
-				wsa_macro_set_spkr_mode(rtd->codec,
-							WSA_MACRO_SPKR_MODE_1);
-				wsa_macro_set_spkr_gain_offset(rtd->codec,
-						WSA_MACRO_GAIN_OFFSET_M1P5_DB);
-				break;
-			}
-		}
-	}
+	
 	card = rtd->card->snd_card;
 	if (!pdata->codec_root) {
 		entry = snd_info_create_subdir(card->module, "codecs",
@@ -5183,7 +5255,7 @@ static void *def_wcd_mbhc_cal(void)
 		return NULL;
 
 #define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(wcd_mbhc_cal)->X) = (Y))
-	S(v_hs_max, 1600);
+	S(v_hs_max, 1700);
 #undef S
 #define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(wcd_mbhc_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
@@ -5193,8 +5265,8 @@ static void *def_wcd_mbhc_cal(void)
 	btn_high = ((void *)&btn_cfg->_v_btn_low) +
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
-	btn_high[0] = 75;
-	btn_high[1] = 150;
+	btn_high[0] = 112;
+	btn_high[1] = 113;
 	btn_high[2] = 237;
 	btn_high[3] = 500;
 	btn_high[4] = 500;
@@ -5892,7 +5964,16 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 				__func__, index, ret);
 			goto clk_off;
 		}
+
+		if (index == SEC_MI2S && !mi2s_intf_conf[index].msm_is_mi2s_master) {
+			ret = snd_soc_dai_set_fmt(rtd->codec_dai, fmt|SND_SOC_DAIFMT_I2S);
+			if (ret < 0) {
+				pr_warn("%s: set codec fmt fail, ret=%d \n", __func__, ret);
+			}
+		}
+
 		if (mi2s_intf_conf[index].msm_is_ext_mclk) {
+			mi2s_mclk[index].enable = 1;
 			pr_debug("%s: Enabling mclk, clk_freq_in_hz = %u\n",
 				__func__, mi2s_mclk[index].clk_freq_in_hz);
 			ret = afe_set_lpass_clock_v2(port_id,
@@ -5902,7 +5983,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 					__func__, ret);
 				goto clk_off;
 			}
-			mi2s_mclk[index].enable = 1;
+			//mi2s_mclk[index].enable = 1;  We already enabled it above
 		}
 		if (pdata->mi2s_gpio_p[index])
 			msm_cdc_pinctrl_select_active_state(
@@ -5927,6 +6008,7 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	int port_id = msm_get_port_id(rtd->dai_link->id);
 	struct snd_soc_card *card = rtd->card;
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	unsigned int interval_us = 0;
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
@@ -5947,6 +6029,19 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 			msm_cdc_pinctrl_select_sleep_state(
 					pdata->mi2s_gpio_p[index]);
 
+		if (substream->stream == 1) {
+			if ((jiffies > clk_on_jiffies)
+				&&((jiffies - clk_on_jiffies) < usecs_to_jiffies(clk_switch_us))) {
+				interval_us = jiffies_to_usecs(jiffies - clk_on_jiffies);
+				pr_warn("%s: clk on %d us, too short!\n", __func__, interval_us);
+				if (interval_us < clk_switch_us) {
+					usleep_range(clk_switch_us - interval_us, clk_switch_us - interval_us + 50);
+					pr_warn("%s: before turn off clk, sleep %d us!\n",
+						__func__, clk_switch_us - interval_us);
+				}
+			}
+		}
+
 		ret = msm_mi2s_set_sclk(substream, false);
 		if (ret < 0)
 			pr_err("%s:clock disable failed for MI2S (%d); ret=%d\n",
@@ -5961,6 +6056,9 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 				pr_err("%s: mclk disable failed for MCLK (%d); ret=%d\n",
 					__func__, index, ret);
 			mi2s_mclk[index].enable = 0;
+		}
+		if ((substream->stream == 1) && (ret >= 0)) {
+			clk_off_jiffies = jiffies;
 		}
 	}
 	mutex_unlock(&mi2s_intf_conf[index].lock);
@@ -5989,6 +6087,23 @@ static struct snd_soc_ops msm_wcn_ops = {
 
 static struct snd_soc_ops msm_ext_cpe_ops = {
 	.hw_params = msm_snd_cpe_hw_params,
+};
+static struct snd_soc_dai_link tfa98xx_be_dai_links[] = {
+	{
+		.name = LPASS_BE_TERT_MI2S_RX,
+		.stream_name = "Tertiary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.2",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tfa98xx.0-0035",
+		.codec_dai_name = "tfa98xx-aif-0-35",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.id = MSM_BACKEND_DAI_TERTIARY_MI2S_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_mi2s_be_ops,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+	},
 };
 
 /* Digital audio interface glue - connects codec <---> CPU */
@@ -6583,6 +6698,7 @@ static struct snd_soc_dai_link msm_common_dai_links[] = {
 		.platform_name = "msm-pcm-hostless",
 		.dynamic = 1,
 		.dpcm_capture = 1,
+		.dpcm_playback = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			    SND_SOC_DPCM_TRIGGER_POST},
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
@@ -6707,18 +6823,20 @@ static struct snd_soc_dai_link msm_int_compress_capture_dai[] = {
 };
 
 static struct snd_soc_dai_link msm_bolero_fe_dai_links[] = {
-	{/* hw:x,37 */
-		.name = LPASS_BE_WSA_CDC_DMA_TX_0,
-		.stream_name = "WSA CDC DMA0 Capture",
-		.cpu_dai_name = "msm-dai-cdc-dma-dev.45057",
+	{
+		.name = "Tertiary MI2S TX_Hostless",
+		.stream_name = "Tertiary MI2S_TX Hostless Capture",
+		.cpu_dai_name = "TERT_MI2S_TX_HOSTLESS",
 		.platform_name = "msm-pcm-hostless",
-		.codec_name = "bolero_codec",
-		.codec_dai_name = "wsa_macro_vifeedback",
-		.id = MSM_BACKEND_DAI_WSA_CDC_DMA_TX_0,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
-		.ignore_suspend = 1,
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ops = &msm_cdc_dma_be_ops,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
 	},
 };
 
@@ -7844,6 +7962,23 @@ static struct snd_soc_dai_link msm_auxpcm_be_dai_links[] = {
 	},
 };
 
+static struct snd_soc_dai_link msm_afe_rxtx_lb_be_dai_link[] = {
+	{
+		.name = LPASS_BE_AFE_LOOPBACK_TX,
+		.stream_name = "AFE Loopback Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.24577",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.id = MSM_BACKEND_DAI_AFE_LOOPBACK_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+};
+
 static struct snd_soc_dai_link msm_wsa_cdc_dma_be_dai_links[] = {
 	/* WSA CDC DMA Backend DAI Links */
 	{
@@ -8015,6 +8150,7 @@ static struct snd_soc_dai_link msm_sm6150_dai_links[
 			 ARRAY_SIZE(msm_mi2s_be_dai_links) +
 			 ARRAY_SIZE(msm_auxpcm_be_dai_links) +
 			 ARRAY_SIZE(msm_wsa_cdc_dma_be_dai_links) +
+			 ARRAY_SIZE(tfa98xx_be_dai_links) +
 			 ARRAY_SIZE(msm_rx_tx_cdc_dma_be_dai_links)];
 
 static int msm_snd_card_tavil_late_probe(struct snd_soc_card *card)
@@ -8314,6 +8450,11 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	u32 wcn_btfm_intf = 0;
 	const struct of_device_id *match;
 	u32 tasha_codec = 0;
+	uint32_t afe_loopback_intf = 0;
+	int i = 0;
+	const char *product_name = NULL;
+	const char *oppo_speaker_type = "oppo,speaker-pa";
+	struct snd_soc_dai_link *temp_link;
 
 	match = of_match_node(sm6150_asoc_machine_of_match, dev->of_node);
 	if (!match) {
@@ -8431,6 +8572,22 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 				__func__);
 		} else {
 			if (mi2s_audio_intf) {
+				if (!of_property_read_string(dev->of_node, oppo_speaker_type,
+						&product_name)) {
+					pr_info("%s: custom speaker product %s\n", __func__, product_name);
+					for (i = 0; i < ARRAY_SIZE(msm_mi2s_be_dai_links); i++) {
+						temp_link = &msm_mi2s_be_dai_links[i];
+						if (temp_link->id == MSM_BACKEND_DAI_TERTIARY_MI2S_RX) {
+							if (!strcmp(product_name, "nxp")
+								&& soc_find_component(NULL, tfa98xx_be_dai_links[0].codec_name)) {
+								pr_info("%s: use nxp dailink replace\n", __func__);
+								memcpy(temp_link, &tfa98xx_be_dai_links[0],
+									sizeof(tfa98xx_be_dai_links[0]));
+								break;
+							}
+						}
+					}
+				}
 				memcpy(msm_sm6150_dai_links + total_links,
 					msm_mi2s_be_dai_links,
 					sizeof(msm_mi2s_be_dai_links));
@@ -8468,6 +8625,21 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 					sizeof(msm_auxpcm_be_dai_links));
 				total_links +=
 					ARRAY_SIZE(msm_auxpcm_be_dai_links);
+			}
+		}
+
+		rc = of_property_read_u32(dev->of_node, "qcom,afe-rxtx-lb",
+					&afe_loopback_intf);
+		if (rc) {
+			dev_dbg(dev, "%s: No DT match AFE loopback audio interface\n",
+				__func__);
+		} else {
+			if (afe_loopback_intf) {
+				memcpy(msm_sm6150_dai_links + total_links,
+				msm_afe_rxtx_lb_be_dai_link,
+				sizeof(msm_afe_rxtx_lb_be_dai_link));
+				total_links +=
+				ARRAY_SIZE(msm_afe_rxtx_lb_be_dai_link);
 			}
 		}
 
@@ -9163,6 +9335,26 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	if (!gpio_is_valid(pdata->hph_en0_gpio) && (!pdata->hph_en0_gpio_p)) {
 		dev_dbg(&pdev->dev, "property %s not detected in node %s",
 			"qcom,hph-en0-gpio", pdev->dev.of_node->full_name);
+	}
+
+	pdata->dmic_switch_gpio = of_get_named_gpio(pdev->dev.of_node,
+						"dmic-switch-gpio", 0);
+	if (!gpio_is_valid(pdata->dmic_switch_gpio)) {
+		dev_err(&pdev->dev, "property %s not detected in node %s",
+			"dmic-switch-gpio", pdev->dev.of_node->full_name);
+	}
+	if (gpio_is_valid(pdata->dmic_switch_gpio)) {
+		pr_debug("%s: dmic_switch_gpio request %d\n", __func__,
+			pdata->dmic_switch_gpio);
+		ret = gpio_request(pdata->dmic_switch_gpio, "dmic_switch_gpio");
+		if (ret) {
+			pr_err("%s: dmic_switch_gpio request failed, ret:%d\n",
+				__func__, ret);
+		} else {
+			ret = gpio_direction_output(pdata->dmic_switch_gpio, 1);
+			pr_info("%s: dmic_switch_gpio output 1, ret:%d\n",
+				__func__, ret);
+		}
 	}
 
 	ret = msm_ext_prepare_hifi(pdata);

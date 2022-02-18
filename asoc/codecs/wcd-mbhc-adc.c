@@ -555,6 +555,9 @@ static void wcd_mbhc_adc_detect_plug_type(struct wcd_mbhc *mbhc)
 	struct snd_soc_codec *codec = mbhc->codec;
 
 	pr_debug("%s: enter\n", __func__);
+	// hack
+	msleep(400); // wait for ADC to settle
+
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 
 	if (mbhc->mbhc_cb->hph_pull_down_ctrl)
@@ -579,8 +582,10 @@ static void wcd_mbhc_adc_detect_plug_type(struct wcd_mbhc *mbhc)
 static void wcd_micbias_disable(struct wcd_mbhc *mbhc)
 {
 	if (mbhc->micbias_enable) {
-		mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(
-			mbhc->codec, MIC_BIAS_2, false);
+		if (mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic) {
+			mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(
+			    mbhc->codec, MIC_BIAS_2, false);
+		} // check if mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic is valid first
 		if (mbhc->mbhc_cb->set_micbias_value)
 			mbhc->mbhc_cb->set_micbias_value(
 					mbhc->codec);

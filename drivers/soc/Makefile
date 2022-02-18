@@ -23,3 +23,14 @@ obj-$(CONFIG_SOC_TI)		+= ti/
 obj-$(CONFIG_ARCH_U8500)	+= ux500/
 obj-$(CONFIG_PLAT_VERSATILE)	+= versatile/
 obj-$(CONFIG_ARCH_ZX)		+= zte/
+obj-y                           += oplus/
+
+#ifdef VENDOR_EDIT
+#/*ye.zhang@BSP.Bootloader.Bootflow, 2020-6-18, Add for oppo project*/
+obj-y				+= oppo/
+#endif
+
+#ifdef OPLUS_FEATURE_SENSOR_SMEM
+#ChenYajie@BSP.SENSOR, 2020/06/16, Add for sensor info
+obj-y                     += oplus/sensor/
+#endif

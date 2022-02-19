@@ -24,8 +24,19 @@
 	compatible = "qcom,sdmmagpie-idp", "qcom,sdmmagpie", "qcom,idp";
 	qcom,msm-id = <365 0x0>;
 	qcom,board-id = <34 0>;
+	oppo,dtsi_no = <19771>;
 };
 
-&dsi_sw43404_amoled_video_display {
+//#ifndef OPLUS_BUG_STABILITY
+/*
+ * YongPeng.Yi@PSW.MM.Display.LCD.Stability, 2019/04/16,
+ * modify for 19031 lcd bringup
+ */
+//&dsi_sw43404_amoled_video_display {
+	//qcom,dsi-display-active;
+//};
+//#else /*OPLUS_BUG_STABILITY*/
+&dsi_oppo18097samsung_ams641rw01_1080_2340_cmd_display {
 	qcom,dsi-display-active;
 };
+//#endif /*OPLUS_BUG_STABILITY*/

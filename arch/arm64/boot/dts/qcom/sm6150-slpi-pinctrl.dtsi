@@ -72,7 +72,9 @@
 				};
 			};
 		};
-
+		/* #ifdef OPLUS_ARCH_EXTENDS */
+		/* Jianfeng.Qiu@MULTIMEDIA.AUDIODRIVER.MACHINE, 2018/04/23, Remove for audio to use lpi gpio */
+		/*
 		qupv3_se10_i2c_pins: qupv3_se10_i2c_pins {
 			qupv3_se10_i2c_active: qupv3_se10_i2c_active {
 				mux {
@@ -100,7 +102,8 @@
 				};
 			};
 		};
-
+		*/
+		/* #endif OPLUS_ARCH_EXTENDS */
 		qupv3_se11_i2c_pins: qupv3_se11_i2c_pins {
 			qupv3_se11_i2c_active: qupv3_se11_i2c_active {
 				mux {
@@ -216,7 +219,9 @@
 				};
 			};
 		};
-
+		/* #ifdef OPLUS_ARCH_EXTENDS */
+		/* Jianfeng.Qiu@MULTIMEDIA.AUDIODRIVER.MACHINE, 2018/04/23, Remove for audio to use lpi gpio */
+		/*
 		qupv3_se10_spi_pins: qupv3_se10_spi_pins {
 			qupv3_se10_spi_active: qupv3_se10_spi_active {
 				mux {
@@ -248,7 +253,8 @@
 				};
 			};
 		};
-
+		*/
+		/* #endif OPLUS_ARCH_EXTENDS */
 		quat_tdm_sclk_active: quat_tdm_sclk_active {
 			mux {
 				pins = "gpio23";

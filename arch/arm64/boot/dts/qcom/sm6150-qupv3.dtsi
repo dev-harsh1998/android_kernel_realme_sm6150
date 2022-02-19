@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,7 +32,6 @@
 		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_0>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,iommu-s1-bypass;
-		status = "ok";
 
 		iommu_qupv3_0_geni_se_cb: qcom,iommu_qupv3_0_geni_se_cb {
 			compatible = "qcom,qupv3-geni-se-cb";
@@ -56,6 +55,31 @@
 		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
+
+	//#ifdef OPLUS_ARCH_EXTENDS
+	//xiang.fei@MULTIMEDIA.AUDIODRIVER.CODEC, 2018/10/29, Add for dbmdx
+	qupv3_se0_spi: spi@0x880000 {
+		compatible = "qcom,spi-geni";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x880000 0x4000>;
+		reg-names = "se_phys";
+		clock-names = "se-clk", "m-ahb", "s-ahb";
+		clocks = <&clock_gcc GCC_QUPV3_WRAP0_S0_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_M_AHB_CLK>,
+			<&clock_gcc GCC_QUPV3_WRAP_0_S_AHB_CLK>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&qupv3_se0_spi_active>;
+		pinctrl-1 = <&qupv3_se0_spi_sleep>;
+		interrupts = <GIC_SPI 601 0>;
+		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_0>;
+		dmas = <&gpi_dma0 0 0 1 64 0>,
+			<&gpi_dma0 1 0 1 64 0>;
+		dma-names = "tx", "rx";
+		status = "ok";
+	};
+	//#endif OPLUS_ARCH_EXTENDS
 
 	/* I2C */
 	qupv3_se1_i2c: i2c@884000 {
@@ -148,7 +172,6 @@
 		qcom,bus-mas-id = <MSM_BUS_MASTER_QUP_1>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,iommu-s1-bypass;
-		status = "ok";
 
 		iommu_qupv3_1_geni_se_cb: qcom,iommu_qupv3_1_geni_se_cb {
 			compatible = "qcom,qupv3-geni-se-cb";
@@ -352,11 +375,6 @@
 		qcom,bus-mas-id = <MSM_BUS_MASTER_LPASS_ANOC>;
 		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,iommu-s1-bypass;
-		qcom,subsys-name = "adsp";
-		clock-names = "corex", "core2x";
-		clocks = <&clock_scc SCC_QUPV3_CORE_CLK>,
-			<&clock_scc SCC_QUPV3_2XCORE_CLK>;
-		status = "disabled";
 
 		iommu_qupv3_2_geni_se_cb: qcom,iommu_qupv3_2_geni_se_cb {
 			compatible = "qcom,qupv3-geni-se-cb";
@@ -398,7 +416,9 @@
 		qcom,wrapper-core = <&qupv3_2>;
 		status = "disabled";
 	};
-
+	/* #ifdef OPLUS_ARCH_EXTENDS */
+	/* Jianfeng.Qiu@MULTIMEDIA.AUDIODRIVER.MACHINE, 2018/04/23, Remove for audio*/
+	/*
 	qupv3_se10_i2c: i2c@62688000 {
 		compatible = "qcom,i2c-geni";
 		reg = <0x62688000 0x4000>;
@@ -415,7 +435,8 @@
 		qcom,wrapper-core = <&qupv3_2>;
 		status = "disabled";
 	};
-
+	*/
+	/* #endif OPLUS_ARCH_EXTENDS */
 	qupv3_se11_i2c: i2c@6268c000 {
 		compatible = "qcom,i2c-geni";
 		reg = <0x6268c000 0x4000>;
@@ -487,7 +508,9 @@
 		qcom,disable-dma;
 		status = "disabled";
 	};
-
+	/* #ifdef OPLUS_ARCH_EXTENDS */
+	/* Jianfeng.Qiu@MULTIMEDIA.AUDIODRIVER.MACHINE, 2018/04/23, Remove for audio*/
+	/*
 	qupv3_se10_spi: spi@62688000 {
 		compatible = "qcom,spi-geni";
 		reg = <0x62688000 0x4000>;
@@ -507,4 +530,6 @@
 		qcom,disable-dma;
 		status = "disabled";
 	};
+	*/
+	/* #endif OPLUS_ARCH_EXTENDS */
 };

@@ -1146,35 +1146,6 @@
 			};
 		};
 
-
-		gpio_jack_det_line_in {
-			jack_det_linein_default: jack_det_linein_default {
-				mux {
-					pins = "gpio1";
-					function = "gpio";
-				};
-				config {
-					pins = "gpio1";
-					bias-pull-up; /* pull up */
-					input-enable;
-				};
-			};
-		};
-
-		gpio_jack_det_line_out {
-			jack_det_lineout_default: jack_det_lineout_default {
-				mux {
-					pins = "gpio60";
-					function = "gpio";
-				};
-				config {
-					pins = "gpio60";
-					bias-pull-up; /* pull up */
-					input-enable;
-				};
-			};
-		};
-
 		ter_i2s_sck_ws {
 			ter_i2s_sck_sleep: ter_i2s_sck_sleep {
 				mux {
@@ -1538,9 +1509,239 @@
 			config {
 				pins = "gpio34", "gpio35";
 				bias-pull-down; /* PULL DOWN */
-				drive-strength = <2>; /* 2 MA */
+		/* #ifdef OPLUS_ARCH_EXTENDS */
+		/* Jianfeng.Qiu@MULTIMEDIA.AUDIODRIVER.MACHINE, 2018/04/18, Add for audio config */
+		sec_mi2s_mclk {
+			sec_mi2s_mclk_sleep: sec_mi2s_mclk_sleep {
+				mux {
+					pins = "gpio57";
+					function = "sec_mi2s";
+				};
+
+				config {
+					pins = "gpio57";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					output-low;
+				};
+			};
+
+			sec_mi2s_mclk_active: sec_mi2s_mclk_active {
+				mux {
+					pins = "gpio57";
+					function = "sec_mi2s";
+				};
+
+				config {
+					pins = "gpio57";
+					drive-strength = <8>;   /* 8 mA */
+					output-high;
+				};
 			};
 		};
+
+		/* speaker */
+		ter_mi2s {
+			ter_mi2s_sleep: ter_mi2s_sleep {
+				mux {
+					pins = "gpio53", "gpio54";
+					function = "ter_mi2s";
+				};
+
+				config {
+					pins = "gpio53", "gpio54";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					output-low;
+				};
+			};
+
+			ter_mi2s_active: ter_mi2s_active {
+				mux {
+					pins = "gpio53", "gpio54";
+					function = "ter_mi2s";
+				};
+
+				config {
+					pins = "gpio53", "gpio54";
+					drive-strength = <8>;   /* 8 mA */
+					output-high;
+				};
+			};
+		};
+
+		ter_mi2s_sd0 {
+			ter_mi2s_sd0_sleep: ter_mi2s_sd0_sleep {
+				mux {
+					pins = "gpio55";
+					function = "ter_mi2s";
+				};
+
+				config {
+					pins = "gpio55";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					input-enable;
+				};
+			};
+
+			ter_mi2s_sd0_active: ter_mi2s_sd0_active {
+				mux {
+					pins = "gpio55";
+					function = "ter_mi2s";
+				};
+
+				config {
+					pins = "gpio55";
+					drive-strength = <8>;   /* 8 mA */
+					input-enable;
+				};
+			};
+		};
+
+		ter_mi2s_sd1 {
+			ter_mi2s_sd1_sleep: ter_mi2s_sd1_sleep {
+				mux {
+					pins = "gpio56";
+					function = "ter_mi2s";
+				};
+
+				config {
+					pins = "gpio56";
+					drive-strength = <2>;   /* 2 mA */
+					bias-pull-down;
+					output-low;
+				};
+			};
+
+			ter_mi2s_sd1_active: ter_mi2s_sd1_active {
+				mux {
+					pins = "gpio56";
+					function = "ter_mi2s";
+				};
+
+				config {
+					pins = "gpio56";
+					drive-strength = <8>;   /* 8 mA */
+					output-high;
+				};
+			};
+		};
+		/* #endif VENDOR_EDIT */
+
+
+//#ifdef VENDOR_EDIT
+//xiang.fei@MULTIMEDIA.AUDIODRIVER.CODEC, 2018/10/29, Add for dbmdx
+		dbmdx_wakeup_on: dbmdx_wakeup_on {
+			mux {
+				pins = "gpio42";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio42";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		dbmdx_wakeup_off: dbmdx_wakeup_off {
+			mux {
+				pins = "gpio42";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio42";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		dbmdx_reset_on: dbmdx_reset_on {
+			mux {
+				pins = "gpio42";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio42";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		dbmdx_reset_off: dbmdx_reset_off {
+			mux {
+				pins = "gpio42";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio42";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		dbmdx_int_on: dbmdx_int_on {
+			mux {
+				pins = "gpio33";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio33";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		dbmdx_int_off: dbmdx_int_off {
+			mux {
+				pins = "gpio33";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio33";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		qupv3_se8_spi_pins: qupv3_se8_spi_pins {
+			qupv3_se8_spi_active: qupv3_se8_spi_active {
+				mux {
+					pins = "gpio49", "gpio50", "gpio51",
+								"gpio52";
+					function = "qup02";
+				};
+
+				config {
+					pins = "gpio49", "gpio50", "gpio51",
+								"gpio52";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se8_spi_sleep: qupv3_se8_spi_sleep {
+				mux {
+					pins = "gpio49", "gpio50", "gpio51",
+								"gpio52";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio49", "gpio50", "gpio51",
+								"gpio52";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+//#endif /* OPLUS_ARCH_EXTENDS */
 
 		cam_sensor_mclk0_active: cam_sensor_mclk0_active {
 			/* MCLK0 */

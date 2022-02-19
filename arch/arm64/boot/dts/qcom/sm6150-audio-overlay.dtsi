@@ -90,6 +90,12 @@
 	};
 
 	wsa_macro: wsa-macro@62f00000 {
+
+	//#ifdef OPLUS_ARCH_EXTENDS
+	//xiang.fei@MULTIMEDIA.AUDIODRIVER.CODEC, 2018/10/29, Remove for dbmdx
+//		status = "disabled";
+	//#endif OPLUS_ARCH_EXTENDS
+
 		compatible = "qcom,wsa-macro";
 		reg = <0x62f00000 0x0>;
 		clock-names = "wsa_core_clk", "wsa_npl_clk";
@@ -98,6 +104,12 @@
 		qcom,wsa-swr-gpios = <&wsa_swr_gpios>;
 		qcom,wsa-bcl-pmic-params = /bits/ 8 <0x00 0x00 0x1E>;
 		swr0: wsa_swr_master {
+
+			//#ifdef OPLUS_ARCH_EXTENDS
+			//Ming.Liu@MULTIMEDIA.AUDIODRIVER.CODEC, 2019/05/31, Remove for dbmdx
+			status = "disabled";
+			//#endif OPLUS_ARCH_EXTENDS
+
 			compatible = "qcom,swr-mstr";
 			#address-cells = <2>;
 			#size-cells = <0>;
@@ -185,7 +197,15 @@
 		qcom,cdc-vdd-mic-bias-current = <25000>;
 
 		qcom,cdc-micbias1-mv = <1800>;
+
+		/* #ifndef OPLUS_ARCH_EXTENDS */
+		/* Ming.Liu@MULTIMEDIA.AUDIODRIVER.MACHINE, 2019/06/06, Modify for mic bias voltage */
+		/*
 		qcom,cdc-micbias2-mv = <1800>;
+		*/
+		qcom,cdc-micbias2-mv = <2700>;
+		/* #endif OPLUS_ARCH_EXTENDS */
+
 		qcom,cdc-micbias3-mv = <1800>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-ldo-rxtx",
@@ -198,11 +218,26 @@
 
 &sm6150_snd {
 	qcom,model = "sm6150-idp-snd-card";
+
+	/* #ifndef OPLUS_ARCH_EXTENDS */
+	/* Jianfeng.Qiu@MULTIMEDIA.AUDIODRIVER.MACHINE, 2018/04/20, Modify for audio config */
+	/*
 	qcom,msm-mi2s-master = <1>, <1>, <1>, <1>, <1>;
+	*/
+	qcom,msm-mi2s-master = <1>, <0>, <1>, <0>, <0>;
+	qcom,msm-mi2s-ext-mclk = <0>, <1>, <0>, <0>, <0>;
+	/* #endif OPLUS_ARCH_EXTENDS */
 	qcom,ext-disp-audio-rx = <1>;
 	qcom,audio-routing =
+		/* #ifdef OPLUS_ARCH_EXTENDS */
+		/* Wangkun@MM.AudioDriver.Machine, 2019/06/07,Add for anlog mic config */
+		"AMIC1", "MIC BIAS1",
+		"MIC BIAS1", "Analog Mic1",
 		"AMIC2", "MIC BIAS2",
 		"MIC BIAS2", "Analog Mic2",
+		"AMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Analog Mic3",
+		/* #endif OPLUS_ARCH_EXTENDS */
 		"TX DMIC0", "MIC BIAS1",
 		"MIC BIAS1", "Digital Mic0",
 		"TX DMIC1", "MIC BIAS1",
@@ -243,7 +278,14 @@
 	asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
 	asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
 			   "msm-ext-disp-audio-codec-rx";
+	/* #ifdef OPLUS_ARCH_EXTENDS */
+	/* Jianfeng.Qiu@MULTIMEDIA.AUDIODRIVER.MACHINE, 2018/04/23, Remove for audio*/
+	/*
 	qcom,wsa-max-devs = <2>;
+	*/
+	qcom,wsa-max-devs = <0>;
+	/* #endif OPLUS_ARCH_EXTENDS */
+
 	qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
 			<&wsa881x_0213>, <&wsa881x_0214>;
 	qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
@@ -252,6 +294,13 @@
 	qcom,codec-aux-devs = <&wcd937x_codec>;
 	qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,
 				<&lpi_tlmm>, <&bolero>;
+
+	/* #ifdef OPLUS_ARCH_EXTENDS */
+	/* Jianfeng.Qiu@MULTIMEDIA.AUDIODRIVER.MACHINE, 2017/01/23, Add for custom audio. */
+	qcom,mi2s-audio-intf = <1>;
+	oppo,speaker-pa = "nxp";
+	/* #endif OPLUS_ARCH_EXTENDS */
+
 };
 
 &soc {
@@ -274,8 +323,14 @@
 	wsa_swr_gpios: wsa_swr_clk_data_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
+
+		//#ifdef OPLUS_ARCH_EXTENDS
+		//xiang.fei@MULTIMEDIA.AUDIODRIVER.CODEC, 2018/10/29, remove for dbmdx
+		/*
 		pinctrl-0 = <&wsa_swr_clk_active &wsa_swr_data_active>;
 		pinctrl-1 = <&wsa_swr_clk_sleep &wsa_swr_data_sleep>;
+		*/
+		//#endif OPLUS_ARCH_EXTENDS
 	};
 
 	rx_swr_gpios: rx_swr_clk_data_pinctrl {
@@ -299,15 +354,29 @@
 	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
+
+		//#ifdef OPLUS_ARCH_EXTENDS
+		//xiang.fei@MULTIMEDIA.AUDIODRIVER.CODEC, 2018/10/29, remove for dbmdx
+		/*
 		pinctrl-0 = <&spkr_1_sd_n_active>;
 		pinctrl-1 = <&spkr_1_sd_n_sleep>;
+		*/
+		//#endif OPLUS_ARCH_EXTENDS
+
 	};
 
 	wsa_spkr_en2: wsa_spkr_en2_pinctrl {
 		compatible = "qcom,msm-cdc-pinctrl";
 		pinctrl-names = "aud_active", "aud_sleep";
+
+		//#ifdef OPLUS_ARCH_EXTENDS
+		//xiang.fei@MULTIMEDIA.AUDIODRIVER.CODEC, 2018/10/29, remove for dbmdx
+		/*
 		pinctrl-0 = <&spkr_2_sd_n_active>;
 		pinctrl-1 = <&spkr_2_sd_n_sleep>;
+		*/
+		//#endif OPLUS_ARCH_EXTENDS
+
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {

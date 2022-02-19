@@ -34,6 +34,103 @@
 		qcom,codec-ext-clk-src = <AUDIO_LPASS_CORE_HW_VOTE>;
 		#clock-cells = <1>;
 	};
+
+
+	//#ifdef OPLUS_ARCH_EXTENDS
+	//xiang.fei@MULTIMEDIA.AUDIODRIVER.CODEC, 2018/10/29, Add for dbmdx
+	dbmdx: dbmdx {
+		//status = "disabled";
+		compatible = "dspg,dbmdx-codec";
+
+		reset-gpio = <&tlmm 42 0>;
+		sv-gpio = <&tlmm 33 0>;
+		wakeup-gpio = <&tlmm 5 0>;
+
+		auto_buffering = <1>;
+		multi-interface-support = <1>;
+		cd-interfaces = <&dbmd4_spi>;
+		va-interfaces = <0 0 0 0>;
+		feature-va; /* enable VA */
+		va-firmware-name = "dbmd4_va_fw.bin";
+		va-config = <0x800C2400
+			0x80290020
+			0x802210A0
+			0x80330056
+			0x80091400
+			0x80158E8E
+			0x8018000A
+			0x801b0020
+			0x80230000
+			0x801A0013
+			0x80108000
+			0x8aab0040
+			0x805004B0
+			0x805104B0
+			0x80410001
+			0x8060c01f
+			0x8061f72b
+			0x806221c0
+			0x8063fb2f
+			0x8064887f
+			0x8065f9f1
+			0x80660006
+			0x80000000
+			0x80000000
+			0x80000000>;
+		va-speeds = <0x0000 460800  0 960000
+			0x0000 2000000 0 4800000
+			0x0000 3000000 0 4800000>;
+		va-mic-config = <0x5012 0x1044 0x0008>;
+		va-mic-mode = <4>;
+
+	//		digital_mic_digital_gain = <0x14>;
+		analog_mic_analog_gain = <0x16>;
+	//		analog_mic_digital_gain = <0x14>;
+
+		master-clk-rate = <32768>;
+		/* constant-clk-rate = <32768>; */
+		firmware_id = <0xdbd4>;
+		use_gpio_for_wakeup = <1>; /* Use wakeup gpio */
+		wakeup_set_value = <0>;  /* Value to write to wakeup gpio */
+		auto_detection = <1>;
+		detection_buffer_channels = <0>;
+		min_samples_chunk_size = <128>;
+		pcm_streaming_mode = <1>;
+		boot_options = <0x200>; /* Verify chip id */
+		amodel_options = <0x24>;
+		send_uevent_on_detection = <1>;
+		send_uevent_after_buffering = <0>;
+		detection_after_buffering = <0>;
+		va_backlog_length = <0x780>;
+		va_advanced_options = <0x1D>; /* Split Passphrase/Buf, Send det and buf events, Send event after passphrase */
+		va_passphrase_margins = <0x00320640>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&dspg_sleep_clk_default>;
+	};
+
+	dbmdx-snd-soc-platform {
+		compatible = "dspg,dbmdx-snd-soc-platform";
+	};
+
+	snd-dbmdx-mach-drv {
+		compatible = "dspg,snd-dbmdx-mach-drv";
+	};
+//#endif /* OPLUS_ARCH_EXTENDS */
+};
+
+&qupv3_se0_spi {
+	status = "okay";
+
+	dbmd4_spi:dbmd4_interface@0x0 {
+		//status = "disabled";
+		compatible = "dspg,dbmd4-spi";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		read-chunk-size  = <0x2000> ;
+		write-chunk-size = <0x20000> ;
+		dma_min_buffer_size = <0>;
+	};
+
 };
 
 &audio_apr {
@@ -41,10 +138,6 @@
 		compatible = "qcom,q6core-audio";
 		bolero: bolero-cdc {
 			compatible = "qcom,bolero-codec";
-
-			va_macro: va-macro@62f20000 {
-			};
-
 			tx_macro: tx-macro@62ec0000 {
 				swr2: tx_swr_master {
 				};
@@ -68,6 +161,13 @@
 		qcom,mi2s-audio-intf = <1>;
 		qcom,auxpcm-audio-intf = <1>;
 		qcom,wcn-btfm = <1>;
+
+//#ifdef OPLUS_ARCH_EXTENDS
+//Yongzhi.Zhang@MULTIMEDIA.AUDIODRIVER.PLATFORM, 2019/08/01,
+//add for RX-to-TX AFE Loopback for AEC path
+		qcom,afe-rxtx-lb = <1>;
+//#endif /* OPLUS_ARCH_EXTENDS */
+
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
@@ -107,7 +207,16 @@
 				<&rx_cdc_dma_3_rx>, <&tx_cdc_dma_3_tx>,
 				<&rx_cdc_dma_4_rx>, <&tx_cdc_dma_4_tx>,
 				<&rx_cdc_dma_5_rx>, <&tx_cdc_dma_5_tx>,
-				<&rx_cdc_dma_6_rx>, <&rx_cdc_dma_7_rx>;
+
+//#ifdef OPLUS_ARCH_EXTENDS
+//Yongzhi.Zhang@MULTIMEDIA.AUDIODRIVER.PLATFORM, 2019/08/01,
+//add for RX-to-TX AFE Loopback for AEC path
+				<&rx_cdc_dma_6_rx>, <&rx_cdc_dma_7_rx>,
+				<&afe_loopback_tx>;
+//#else /* OPLUS_ARCH_EXTENDS */
+//				<&rx_cdc_dma_6_rx>, <&rx_cdc_dma_7_rx>;
+//#endif /* OPLUS_ARCH_EXTENDS */
+
 		asoc-cpu-names = "msm-dai-q6-dp.24608",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
@@ -146,7 +255,15 @@
 				"msm-dai-cdc-dma-dev.45114",
 				"msm-dai-cdc-dma-dev.45115",
 				"msm-dai-cdc-dma-dev.45116",
-				"msm-dai-cdc-dma-dev.45118";
+
+//#ifdef OPLUS_ARCH_EXTENDS
+//Yongzhi.Zhang@MULTIMEDIA.AUDIODRIVER.PLATFORM, 2019/08/01,
+//add for RX-to-TX AFE Loopback for AEC path
+				"msm-dai-cdc-dma-dev.45118",
+				"msm-dai-q6-dev.24577";
+//#else /* OPLUS_ARCH_EXTENDS */
+//				"msm-dai-cdc-dma-dev.45118";
+//#endif /* OPLUS_ARCH_EXTENDS */
 		fsa4480-i2c-handle = <&fsa4480>;
 	};
 };

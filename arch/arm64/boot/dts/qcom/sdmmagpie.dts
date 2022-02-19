@@ -19,4 +19,5 @@
 	compatible = "qcom,sdmmagpie";
 	qcom,pmic-name = "PM6150";
 	qcom,board-id = <0 0>;
+	oppo,dtsi_no = <19771>;
 };

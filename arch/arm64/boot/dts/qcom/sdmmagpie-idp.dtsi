@@ -24,6 +24,72 @@
 		#include "qg-batterydata-alium-3600mah.dtsi"
 		#include "qg-batterydata-mlp466076-3200mah.dtsi"
 	};
+	//#ifdef VENDOR_EDIT
+	/*yajie.chen @BSP.sensor, 2020/04/03, Add for sensor dts*/
+	/*enum sensor_id { OPPO_ACCEL,OPPO_GYRO,OPPO_MAG,OPPO_LIGHT,OPPO_PROXIMITY,OPPO_SAR,OPPO_CT,OPPO_BAROMETER,SENSORS_NUM};*/
+	oplus_sensor {
+		compatible = "oplus,sensor-devinfo";
+		als-row-coe = <540>;
+		/*enum {LSM6DSM = 0x01, BMI160 = 0x02, LSM6DS3 = 0x04};*/
+		gsensor@0 {
+			sensor-name = <0x02>;//BMI160
+			sensor-direction = <6>;
+			sensor-index = <0>;//source num
+			sensor-type = <0>;//OPPO_ACCEL
+		};
+		gsensor@1 {
+			sensor-name = <0x01>;//LSM6DS3
+			sensor-direction = <6>;
+			sensor-index = <1>;//source num
+			sensor-type = <0>;//OPPO_ACCEL
+		};
+		/* enum {AKM0991X = 0x01, MMC5603 = 0x02};*/
+		msensor@0 {
+			sensor-name = <0x01>;//AKM09918
+			sensor-direction = <4>;
+			sensor-index = <0>;
+			sensor-type = <2>;//OPPO_MAG
+			parameter-number= <18>;
+			soft-mag-parameter = <10341 0 1576 0 33 1 2072 0 9135 0 242 1 959 0 651 1 10746 0>;
+		};
+		/*virtual sensor
+		enum sensor_algo_id {
+			OPPO_PICKUP_DETECT,
+			OPPO_LUX_AOD,
+			OPPO_TP_GESTURE,
+			OPPO_FP_DISPLAY,
+			OPPO_FREE_FALL,
+			OPPO_CAMERA_PROTECT,
+			SENSOR_ALGO_NUM
+		}*/
+		pickup_detect {
+			sensor-type = <0>; //OPPO_PICKUP_DETECT
+			is-virtual-sensor;
+			is-need-prox = <0>;
+			prox-type = <1>; // 0 - proximity; 1 - proximity_fake
+		};
+		lux_aod {
+			sensor-type = <1>; //OPPO_LUX_AOD
+			is-virtual-sensor;
+			thrd-low = <12>;
+			thrd-high = <50>;
+			als-type = <1>; // 0 - wise_light; 1 - ambient_light
+		};
+		fp_display {
+			sensor-type = <3>; //OPPO_FP_DISPLAY
+			is-virtual-sensor;
+			prox-type = <1>; // 0 - proximity; 1 - proximity_fake
+		};
+		free_fall {
+			sensor-type = <4>; //OPPO_FREE_FALL
+			is-virtual-sensor;
+		};
+		tp_gesture {
+			sensor-type = <0x2>;
+			is-virtual-sensor;
+		};
+	};
+	//#endif /*VENDOR_EDIT*/
 };
 
 &qupv3_se8_2uart {
@@ -67,15 +133,17 @@
 
 &qupv3_se2_i2c {
 	status = "ok";
-	qcom,clk-freq-out = <1000000>;
+	//#ifndef VENDOR_EDIT
+    //Weiwei.Deng@CN.NFC.Basic.Hardware.2354150, 2019/09/26, reset nfc i2c freq to default value
+    //qcom,clk-freq-out = <1000000>;
+    //#endif /* VENDOR_EDIT */
 	nq@28 {
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;
 		qcom,nq-irq = <&tlmm 37 0x00>;
-		qcom,nq-ven = <&tlmm 12 0x00>;
+		qcom,nq-ven = <&tlmm 67 0x00>;
 		qcom,nq-firm = <&tlmm 36 0x00>;
 		qcom,nq-clkreq = <&tlmm 31 0x00>;
-		qcom,nq-esepwr = <&tlmm 94 0x00>;
 		interrupt-parent = <&tlmm>;
 		interrupts = <37 0>;
 		interrupt-names = "nfc_irq";
@@ -84,6 +152,13 @@
 				&nfc_clk_req_active>;
 		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend
 				&nfc_clk_req_suspend>;
+	     };
+	tfa98xx@35 {
+		compatible = "nxp,tfa98xx";
+		reg = <0x35>;
+		tfa9874_vdd-supply = <&pm6150_l10>;
+		tfa98xx_fw_name = "tfa98xx.cnt";
+		status = "okay";
 	};
 };
 
@@ -115,14 +190,83 @@
 	qcom,vdd-io-current-level = <0 22000>;
 
 	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+//#ifndef VENDOR_EDIT
+//huyu@BSP.Storage.Sdcard,2020/08/12 Add for SDcard detect
+	//pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+//#else
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on &sd_detect_default>;
+//#endif
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
 
-	cd-gpios = <&tlmm 69 GPIO_ACTIVE_LOW>;
+//#ifndef VENDOR_EDIT
+//huyu@BSP.Storage.Sdcard,2020/08/12 Add for SDcard detect
+	//cd-gpios = <&tlmm 69 GPIO_ACTIVE_LOW>;
+//#else
+    cd-gpios = <&tlmm 69 GPIO_ACTIVE_HIGH>;
+//#endif
 
 	status = "ok";
 };
 
+//#ifdef OPLUS_BUG_STABILITY
+/*
+ * Yongpeng.Yi@PSW.MM.Display.LCD.Stability, 2019/03/28,
+ * add for 19031 samsung amoled
+ */
+&dsi_oppo18097samsung_ams641rw01_1080_2340_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
+	qcom,platform-te-gpio = <&tlmm 37 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
+};
+
+&dsi_oppo19031samsung_ams641rw01_1080_2400_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <1023>;
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
+	qcom,platform-te-gpio = <&tlmm 37 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
+};
+
+&dsi_oppo19031samsung_ams641rw01_1080_2400_61fps_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
+	qcom,platform-te-gpio = <&tlmm 37 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
+};
+
+&dsi_oppo19031samsung_ams655ue01_1080_2400_61fps_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
+	qcom,platform-te-gpio = <&tlmm 37 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
+};
+
+
+&dsi_oppo19111samsung_ams641rw16_1080_2340_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
+	qcom,platform-te-gpio = <&tlmm 37 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
+};
+
+
+&dsi_rm19771samsung_ams641rw16_1080_2340_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-mode-sel-gpio-state = "single_port";
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&pm6150l_gpios 9 0>;
+};
+//#endif /*OPLUS_BUG_STABILITY*/
 &dsi_sw43404_amoled_video {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
@@ -305,9 +449,14 @@
 };
 
 &qupv3_se7_i2c {
-	qcom,i2c-touch-active="st,fts";
+//#ifndef OPLUS_FEATURE_TP_BASIC
+//ZhongWenjie@BSP.group 2019-03-29 add for enable tp function
+//	qcom,i2c-touch-active="st,fts";
+//#endif
 	status = "ok";
-
+//#ifndef OPLUS_FEATURE_TP_BASIC
+//ZhongWenjie@BSP.group 2019-03-29 add for enable tp function
+/*
 	st_fts@49 {
 		compatible = "st,fts";
 		reg = <0x49>;
@@ -352,6 +501,56 @@
 		synaptics,reset-on-state = <0>;
 		synaptics,reset-active-ms = <20>;
 	};
+*/
+//#else
+	synaptics7150@20 {
+		compatible = "synaptics-s3706";
+		reg = <0x20>;
+		chip-name = "S3706";
+
+		/* Interrupt && Irq-gpio */
+		interrupt-parent = <&tlmm>;
+		interrupts = <9 0x00>;
+
+		/* Power Config */
+		vdd_2v8-supply = <&pm6150l_l7>;
+		vcc_1v8-supply = <&pm6150_l12>;
+
+		/* Other HW Resource */
+		irq-gpio = <&tlmm 9 0x2008>;
+		reset-gpio = <&tlmm 8 0x1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+
+		touchpanel,max-num-support = <10>;
+		touchpanel,tx-rx-num = <16 33>;
+		touchpanel,panel-coords = <1080 2340>;
+		touchpanel,display-coords = <1080 2340>;
+		touchpanel,touchmajor-limit = <0 54>;
+
+		tp_type = <8>;// type of tp_dev ,TP-SAMSUNG = 8;
+		platform_support_project = <19771>;
+		platform_support_project_dir = <19771>;
+		platform_support_project_commandline = "default_commandline";
+
+		/* SW Support Feature Control */
+		black_gesture_support;
+		fw_edge_limit_support;
+		fw_corner_limit_support;
+		charger_pump_support;
+		game_switch_support;
+		face_detect_support;
+		smart_gesture_support;
+		pressure_report_support;
+		fw_update_app_support;
+		fingerprint_underscreen_support;
+		report_120hz_support;
+		report_point_first_support;
+
+		touchpanel,button-type = <4>;
+		touchpanel.button-TRx = <0 0>;
+	};
+//#endif
 };
 
 &pm6150_qg {
@@ -369,23 +568,21 @@
 		      <&pm6150_vadc ADC_DIE_TEMP>,
 		      <&pm6150l_vadc ADC_AMUX_THM1_PU2>,
 		      <&pm6150_vadc ADC_SBUx>,
-		      <&pm6150_vadc ADC_VPH_PWR>;
+		      <&pm6150l_vadc ADC_AMUX_THM1>,
+		      <&pm6150_vadc ADC_AMUX_THM3>,
+		      <&pm6150_vadc ADC_VPH_PWR>,
+		      <&pm6150_vadc ADC_GPIO4>;
 	io-channel-names = "usb_in_voltage",
 			   "usb_in_current",
 			   "chg_temp",
 			   "die_temp",
 			   "conn_temp",
 			   "sbux_res",
-			   "vph_voltage";
+			   "usb_temp1",
+			   "usb_temp2",
+			   "vph_voltage",
+			   "chgid_voltage";
 	qcom,battery-data = <&mtp_batterydata>;
-	qcom,auto-recharge-soc = <98>;
-	qcom,step-charging-enable;
-	qcom,sw-jeita-enable;
-	qcom,fcc-stepping-enable;
-	qcom,suspend-input-on-debug-batt;
-	qcom,sec-charger-config = <3>;
-	qcom,thermal-mitigation = <4200000 3500000 3000000
-			2500000 2000000 1500000 1000000 500000>;
 	dpdm-supply = <&qusb_phy0>;
 	qcom,charger-temp-max = <800>;
 	qcom,smb-temp-max = <800>;
@@ -448,6 +645,15 @@
 };
 
 &soc {
+	//#ifdef VENDOR_EDIT
+	/* Yu.Kun@CN.NFC.Basic.Hardware, 2020/03/24, Add for oppo nfc chipset */
+	nfc_chipset {
+		compatible = "oppo-nfc-chipset";
+		chipset-19771-8 = "SN100T";	
+		chipset-19771-11 = "SN100T";
+		chipset-19771-54 = "SN100T";	
+	};
+	//#endif /* VENDOR_EDIT */
 	gpio_keys {
 		compatible = "gpio-keys";
 		label = "gpio-keys";
@@ -465,6 +671,35 @@
 			gpio-key,wakeup;
 		};
 	};
+	oplus_secure_common {
+				compatible = "oplus,secure_common";
+			};
+
+	oplus_fp_common {
+			compatible = "oplus,fp_common";
+			oplus,fp_gpio_num = <1>;
+			oplus,fp_gpio_0 = <&tlmm 63 0x0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&gpio_id2_default>;
+
+			goodix_optical {
+				oplus,fp-id = <0>;
+				vendor-chip = <11>;
+				eng-menu = "-1,-1";
+				chip-name = "G_OPTICAL_G3";
+			};
+		};
+
+	goodix_fp {
+		compatible = "goodix,goodix_fp";
+			power-mode = <3>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <91 0>;
+			goodix,gpio_irq = <&tlmm 91 0x1>;
+			goodix,gpio_reset = <&tlmm 90 0x0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&gpio_goodix_irq_default>;
+		};
 };
 
 &thermal_zones {
@@ -472,3 +707,9 @@
 		status = "disabled";
 	};
 };
+#include "sdmmagpie-idp-oplus.dtsi"
+
+//#ifdef VENDOR_EDIT
+///* Yichun.Chen  PSW.BSP.CHG  2019-05-30  oppo charge edit dts */
+#include "oppo-charge.dtsi"
+//endif

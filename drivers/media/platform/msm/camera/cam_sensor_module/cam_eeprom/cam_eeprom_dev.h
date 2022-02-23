@@ -185,6 +185,39 @@ struct cam_eeprom_ctrl_t {
 	struct cam_eeprom_memory_block_t cal_data;
 };
 
+#ifdef VENDOR_EDIT
+    /*add by yufeng@camera, 20190618 for write calibration*/
+    #define CALIB_DATA_LENGTH         1561
+    #define WRITE_DATA_MAX_LENGTH     8
+    #define WRITE_DATA_DELAY          5
+
+    struct cam_write_eeprom_t {
+        uint32_t cam_id;
+        uint32_t baseAddr;
+        uint32_t calibDataSize;
+        uint32_t isWRP;
+        uint32_t WRPaddr;
+        unsigned char calibData[CALIB_DATA_LENGTH];
+    } __attribute__ ((packed));
+
+//add by yufeng@camera, 20190618 for check eeprom data
+    #define EEPROM_CHECK_DATA_MAX_SIZE 196
+    struct check_eeprom_data_t{
+        uint32_t cam_id;
+        uint32_t startAddr;
+        uint32_t eepromData_checksum;
+    } __attribute__ ((packed));
+//add by yufeng@camera, 20190618 for write ae sync
+    #define AE_SYNC_SIZE 36
+    struct cam_write_AE_SYNC_t{
+        uint32_t cam_id;
+        uint32_t baseAddr;
+        uint32_t AESyncSize;
+        uint32_t isWRP;
+        uint32_t WRPaddr;
+        unsigned char AESync[AE_SYNC_SIZE];
+    } __attribute__ ((packed));
+#endif
 int32_t cam_eeprom_update_i2c_info(struct cam_eeprom_ctrl_t *e_ctrl,
 	struct cam_eeprom_i2c_info_t *i2c_info);
 

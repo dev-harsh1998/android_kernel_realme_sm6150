@@ -12,3 +12,13 @@ obj-$(CONFIG_SPECTRA_CAMERA) += cam_icp/
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_jpeg/
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_fd/
 obj-$(CONFIG_SPECTRA_CAMERA) += cam_lrme/
+
+#VENDOR_EDIT_START
+#bsp not added this flag yet, for early stage, added it for porting
+#ifndef VENDOR_EDIT
+KBUILD_CFLAGS += -DVENDOR_EDIT
+KBUILD_CPPFLAGS += -DVENDOR_EDIT
+CFLAGS_KERNEL += -DVENDOR_EDIT
+CFLAGS_MODULE += -DVENDOR_EDIT
+#endif
+#VENDOR_EDIT_END

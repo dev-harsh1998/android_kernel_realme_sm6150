@@ -874,7 +874,12 @@ static int32_t cam_cci_burst_read(struct v4l2_subdev *sd,
 	int32_t read_words = 0, exp_words = 0;
 	int32_t index = 0, first_byte = 0, total_read_words = 0;
 	enum cci_i2c_master_t master;
+#ifdef VENDOR_EDIT
+    /*Added by zhaominghui@Cam.Drv, 20190528 for OIS ptimization, add qualcomm patch*/
+	enum cci_i2c_queue_t queue = QUEUE_0;
+#else
 	enum cci_i2c_queue_t queue = QUEUE_1;
+#endif
 	struct cci_device                  *cci_dev = NULL;
 	struct cam_cci_read_cfg            *read_cfg = NULL;
 	struct cam_hw_soc_info             *soc_info = NULL;
@@ -1139,7 +1144,12 @@ static int32_t cam_cci_read(struct v4l2_subdev *sd,
 	int32_t index = 0, first_byte = 0;
 	uint32_t i = 0;
 	enum cci_i2c_master_t master;
+#ifdef VENDOR_EDIT
+    /*Added by zhaominghui@Cam.Drv, 20190528 for OIS ptimization, add qualcomm patch*/
+	enum cci_i2c_queue_t queue = QUEUE_0;
+#else
 	enum cci_i2c_queue_t queue = QUEUE_1;
+#endif
 	struct cci_device *cci_dev = NULL;
 	struct cam_cci_read_cfg *read_cfg = NULL;
 	struct cam_hw_soc_info *soc_info = NULL;
@@ -1665,7 +1675,12 @@ static int32_t cam_cci_write(struct v4l2_subdev *sd,
 	case MSM_CCI_I2C_WRITE:
 	case MSM_CCI_I2C_WRITE_SEQ:
 	case MSM_CCI_I2C_WRITE_BURST:
-		for (i = 0; i < NUM_QUEUES; i++) {
+#ifdef 	VENDOR_EDIT
+        /*Added by zhaominghui@Cam.Drv, 20190528 for OIS ptimization, add qualcomm patch*/
+        for (i = 0; i < 1; i++) {
+#else
+        for (i = 0; i < NUM_QUEUES; i++) {
+#endif
 			if (mutex_trylock(&cci_master_info->mutex_q[i])) {
 				rc = cam_cci_i2c_write(sd, c_ctrl, i,
 					MSM_SYNC_DISABLE);

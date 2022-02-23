@@ -39,6 +39,14 @@ enum cam_ois_state {
 	CAM_OIS_START,
 };
 
+#ifdef VENDOR_EDIT
+#define HALL_MAX_NUMBER 12
+struct ois_hall_type {
+	uint32_t dataNum;
+	uint32_t mdata[HALL_MAX_NUMBER];
+	uint32_t timeStamp;
+};
+#endif
 /**
  * struct cam_ois_registered_driver_t - registered driver info
  * @platform_driver      :   flag indicates if platform driver is registered

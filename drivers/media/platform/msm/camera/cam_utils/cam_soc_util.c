@@ -30,7 +30,7 @@ static int cam_soc_util_get_clk_level(struct cam_hw_soc_info *soc_info,
 
 	clk_rate_round = clk_round_rate(soc_info->clk[src_clk_idx], clk_rate);
 	if (clk_rate_round < 0) {
-		CAM_ERR(CAM_UTIL, "round failed rc = %ld",
+		CAM_ERR(CAM_UTIL, "round failed rc = %lld",
 			clk_rate_round);
 		return -EINVAL;
 	}

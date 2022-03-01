@@ -54,7 +54,7 @@ static struct task_struct *oplushg_usbtemp_kthread;
 DECLARE_WAIT_QUEUE_HEAD(opluschg_usbtemp_wq);
 
 extern int get_boot_mode(void);
-extern bool boot_with_console(void);
+//extern bool boot_with_console(void);
 //extern void oplus_force_to_fulldump(bool force);
 
 static int opluschg_charge_enble(void);
@@ -11620,15 +11620,22 @@ static int opluschg_get_chargerid(void)
 		return 0;
 	}
 
+	/*
 	if (boot_with_console() == false) {
 		pinctrl_select_state(g_oplus_chip->normalchg_gpio.pinctrl, g_oplus_chip->normalchg_gpio.uart_bias_disable);
 		msleep(10);
 	}
+	*/
+	pinctrl_select_state(g_oplus_chip->normalchg_gpio.pinctrl, g_oplus_chip->normalchg_gpio.uart_bias_disable);
+	msleep(10);
 
 	chgid = opluschg_read_adc(CHARGERID_VOLTAGE);
 
+	/*
 	if (boot_with_console() == false)
 		pinctrl_select_state(g_oplus_chip->normalchg_gpio.pinctrl, g_oplus_chip->normalchg_gpio.uart_pull_down);
+	*/
+	pinctrl_select_state(g_oplus_chip->normalchg_gpio.pinctrl, g_oplus_chip->normalchg_gpio.uart_pull_down);
 
 	return chgid;
 }

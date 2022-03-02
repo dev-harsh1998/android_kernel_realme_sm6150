@@ -264,44 +264,6 @@ static int gfspi_ioctl_clk_uninit(struct gf_dev *data)
 }
 #endif
 
-static void gf_kernel_key_input(struct gf_dev *gf_dev, struct gf_key *gf_key)
-{
-    uint32_t key_input = 0;
-    if (GF_KEY_HOME == gf_key->key)
-    {
-        key_input = GF_KEY_INPUT_HOME;
-    }
-    else if (GF_KEY_POWER == gf_key->key)
-    {
-        key_input = GF_KEY_INPUT_POWER;
-    }
-    else if (GF_KEY_CAMERA == gf_key->key)
-    {
-        key_input = GF_KEY_INPUT_CAMERA;
-    }
-    else
-    {
-        /* add special key define */
-        key_input = gf_key->key;
-    }
-    pr_info("%s: received key event[%d], key=%d, value=%d\n",
-            __func__, key_input, gf_key->key, gf_key->value);
-
-    if ((GF_KEY_POWER == gf_key->key || GF_KEY_CAMERA == gf_key->key) && (gf_key->value == 1))
-    {
-        input_report_key(gf_dev->input, key_input, 1);
-        input_sync(gf_dev->input);
-        input_report_key(gf_dev->input, key_input, 0);
-        input_sync(gf_dev->input);
-    }
-
-    if (GF_KEY_HOME == gf_key->key)
-    {
-        input_report_key(gf_dev->input, key_input, gf_key->value);
-        input_sync(gf_dev->input);
-    }
-}
-
 static irqreturn_t gf_irq(int irq, void *handle)
 {
 #if defined(GF_NETLINK_ENABLE)
@@ -350,7 +312,6 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     int retval = 0;
     u8 netlink_route = NETLINK_TEST;
     struct gf_ioc_chip_info info;
-    struct gf_key gf_key;
 
     if (_IOC_TYPE(cmd) != GF_IOC_MAGIC) {
         return -ENODEV;
@@ -410,15 +371,7 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
             gf_power_reset(gf_dev);
             gf_dev->device_available = 1;
             break;
-        case GF_IOC_INPUT_KEY_EVENT:
-            if (copy_from_user(&gf_key, (struct gf_key *)arg, sizeof(struct gf_key))) {
-                pr_info("Failed to copy input key event from user to kernel\n");
-                retval = -EFAULT;
-                break;
-            }
 
-            gf_kernel_key_input(gf_dev, &gf_key);
-            break;
         case GF_IOC_ENABLE_SPI_CLK:
             pr_debug("%s GF_IOC_ENABLE_SPI_CLK\n",  __func__);
 #ifdef AP_CONTROL_CLK

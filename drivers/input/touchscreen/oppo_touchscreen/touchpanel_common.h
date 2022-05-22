@@ -696,6 +696,19 @@ typedef struct apk_proc_operations {
 struct aging_test_proc_operations;
 struct debug_info_proc_operations;
 struct earsense_proc_operations;
+
+struct fingerprint_trigger_info {
+    int read_coordinate_x;
+    int read_coordinate_y;
+    bool read_fp_trigger;
+}; // to be used by udfs_long_press_sensor_later.
+
+static struct fingerprint_trigger_info fp_trg_inf = {
+    .read_coordinate_x = 2147483599,
+    .read_coordinate_y = 2147483599,
+    .read_fp_trigger = false
+};
+
 struct touchpanel_data {
     bool register_is_16bit;                             /*register is 16bit*/
     bool glove_mode_support;                            /*glove_mode support feature*/

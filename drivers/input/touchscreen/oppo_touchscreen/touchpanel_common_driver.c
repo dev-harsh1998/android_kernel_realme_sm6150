@@ -545,6 +545,9 @@ static void tp_gesture_handle(struct touchpanel_data *ts)
         input_sync(ts->input_dev);
     } else if (gesture_info_temp.gesture_type == FingerprintDown) {
         ts->fp_info.touch_state = 1;
+        fp_trg_inf.read_fp_trigger = !!ts->fp_info.touch_state;
+        fp_trg_inf.read_coordinate_x = gesture_info_temp.Point_start.x;
+        fp_trg_inf.read_coordinate_y = gesture_info_temp.Point_start.y;
         if (ts->screenoff_fingerprint_info_support) {
             ts->fp_info.x = gesture_info_temp.Point_start.x;
             ts->fp_info.y = gesture_info_temp.Point_start.y;
@@ -553,6 +556,9 @@ static void tp_gesture_handle(struct touchpanel_data *ts)
         notify_display_fpd(true);
     } else if (gesture_info_temp.gesture_type == FingerprintUp) {
         ts->fp_info.touch_state = 0;
+        fp_trg_inf.read_fp_trigger = !!ts->fp_info.touch_state;
+        fp_trg_inf.read_coordinate_x = gesture_info_temp.Point_start.x;
+        fp_trg_inf.read_coordinate_y = gesture_info_temp.Point_start.y;
         if (ts->screenoff_fingerprint_info_support) {
             ts->fp_info.x = gesture_info_temp.Point_start.x;
             ts->fp_info.y = gesture_info_temp.Point_start.y;
@@ -2037,6 +2043,27 @@ static const struct file_operations prox_mask_control_fops = {
     .write = prox_mask_write,
     .read =  prox_mask_show,
     .open = simple_open,
+    .owner = THIS_MODULE,
+};
+
+
+static ssize_t fp_state_show(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
+{
+    int ret = 0;
+    char page[PAGESIZE] = {0};
+    struct fingerprint_trigger_info *fp_data_ptr = &fp_trg_inf;
+    if (!fp_data_ptr)
+        ret = snprintf(page, PAGESIZE-1, "fp_trg_info: struct null? isNull=%d, data.x=%d, data.y=%d, fp_state=%d\n", (fp_data_ptr == NULL), fp_trg_inf.read_coordinate_x,
+                        fp_trg_inf.read_coordinate_y, fp_trg_inf.read_fp_trigger);
+    ret = snprintf(page, PAGESIZE-1, "%d,%d,%d", fp_data_ptr->read_coordinate_x, fp_data_ptr->read_coordinate_y,
+                    fp_data_ptr->read_fp_trigger);
+    ret = simple_read_from_buffer(user_buf, count, ppos, page, strlen(page));
+    return ret;
+}
+
+static const struct file_operations fp_state_fops = {
+    .read  = fp_state_show,
+    .open  = simple_open,
     .owner = THIS_MODULE,
 };
 
@@ -3954,6 +3981,12 @@ static int init_touchpanel_proc(struct touchpanel_data *ts)
         TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);
     }
 
+    prEntry_tmp = proc_create_data("fp_state", 0444, prEntry_tp, &fp_state_fops, ts);
+    if (prEntry_tmp == NULL) {
+        ret = -ENOMEM;
+        TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);
+    }
+
     //proc files-step2-5:/proc/touchpanel/glove_mode_enable (Glove mode related interface)
     if (ts->glove_mode_support) {
         prEntry_tmp = proc_create_data("glove_mode_enable", 0666, prEntry_tp, &proc_glove_control_fops, ts);
@@ -5581,7 +5614,7 @@ static int init_parse_dts(struct device *dev, struct touchpanel_data *ts)
     ts->edge_limit_support      = of_property_read_bool(np, "edge_limit_support");
     ts->fw_edge_limit_support   = of_property_read_bool(np, "fw_edge_limit_support");
     ts->drlimit_remove_support  = of_property_read_bool(np, "drlimit_remove_support");
-    ts->glove_mode_support      = of_property_read_bool(np, "glove_mode_support");
+    ts->glove_mode_support      = true;
     ts->esd_handle_support      = of_property_read_bool(np, "esd_handle_support");
     ts->spurious_fp_support     = of_property_read_bool(np, "spurious_fingerprint_support");
     ts->charger_pump_support    = of_property_read_bool(np, "charger_pump_support");
@@ -5617,7 +5650,7 @@ static int init_parse_dts(struct device *dev, struct touchpanel_data *ts)
     ts->spuri_fp_touch.lcd_resume_ok = true;
     ts->new_set_irq_wake_support = of_property_read_bool(np, "new_set_irq_wake_support");
     ts->report_flow_unlock_support = of_property_read_bool(np, "report_flow_unlock_support");
-    ts->screenoff_fingerprint_info_support = of_property_read_bool(np, "screenoff_fingerprint_info_support");
+    ts->screenoff_fingerprint_info_support = true;
     ts->irq_need_dev_resume_ok =  of_property_read_bool(np, "irq_need_dev_resume_ok");
     ts->report_rate_white_list_support = of_property_read_bool(np, "report_rate_white_list_support");
     ts->lcd_tp_refresh_support = of_property_read_bool(np, "lcd_tp_refresh_support");
